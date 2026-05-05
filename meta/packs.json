@@ -1,1 +1,46 @@
-{"packs": []}
+{
+  "packs": [
+    {
+      "id": "elastic-engineer-prep",
+      "title": "Elastic Engineer Prep",
+      "description": "Prep for the Elastic Certified Engineer exam — text analysis, mappings, queries, ingest.",
+      "status": "available",
+      "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/elastic-engineer-prep"
+    },
+    {
+      "id": "release-9-4-enablement",
+      "title": "What's new in Elastic 9.4",
+      "description": "PromQL in ES|QL, METRICS_INFO, TS_INFO. Hands-on drills with seeded TSDS.",
+      "status": "available",
+      "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/release-9-4-enablement"
+    },
+    {
+      "id": "release-9-5-enablement",
+      "title": "What's new in Elastic 9.5",
+      "description": "Coming soon — placeholder for the 9.5 enablement drills.",
+      "status": "coming-soon",
+      "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/release-9-5-enablement"
+    },
+    {
+      "id": "solution-architect-prep",
+      "title": "Solution Architect Prep",
+      "description": "Coming soon — sizing, capacity planning, multi-cluster patterns.",
+      "status": "coming-soon",
+      "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/solution-architect-prep"
+    },
+    {
+      "id": "observability-essentials",
+      "title": "Observability Essentials",
+      "description": "Coming soon — APM, EDOT, SLOs, OTel pipelines.",
+      "status": "coming-soon",
+      "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/observability-essentials"
+    },
+    {
+      "id": "security-essentials",
+      "title": "Security Essentials",
+      "description": "Coming soon — detection rules, alert triage, case management.",
+      "status": "coming-soon",
+      "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/security-essentials"
+    }
+  ]
+}
