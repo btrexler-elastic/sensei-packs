@@ -36,12 +36,14 @@ steps:
             query: |-
               TS {{ inputs.stream_name | default: 'sensei-promql-demo' }} | METRICS_INFO
 
-      - name: gate_catalog_nonempty
+      - name: branch_catalog
         type: if
         condition: "${{ steps.catalog.output.values.size > 0 }}"
         steps:
           - name: graded
             type: elasticsearch.request
+            on-failure:
+              continue: true
             with:
               method: POST
               path: "/_query"
@@ -50,7 +52,7 @@ steps:
                   TS {{ inputs.stream_name | default: 'sensei-promql-demo' }} | METRICS_INFO
                   | WHERE metric_name == "http_requests_total"
 
-          - name: gate_metric_match
+          - name: branch_metric
             type: if
             condition: "${{ steps.graded.output.values.size > 0 }}"
             steps:
@@ -62,9 +64,10 @@ steps:
                   body:
                     query: |-
                       ROW passed = true,
-                        hints = "",
+                        mode = "canonical",
+                        hints_json = "[]",
                         actual_row_count = {{ steps.graded.output.values.size }},
-                        actual_columns = "metric_name,data_stream,unit,metric_type,field_type,dimension_fields"
+                        actual_columns_json = "[\"metric_name\",\"data_stream\",\"unit\",\"metric_type\",\"field_type\",\"dimension_fields\"]"
             else:
               - name: finalize_wrong_metric
                 type: elasticsearch.request
@@ -74,23 +77,42 @@ steps:
                   body:
                     query: |-
                       ROW passed = false,
-                        hints = "wrong_metric",
+                        mode = "canonical",
+                        hints_json = "[\"Expected to see http_requests_total in the metric metadata, but didn't.\"]",
                         actual_row_count = 0,
-                        actual_columns = ""
+                        actual_columns_json = "[]"
         else:
-          - name: finalize_query_failed
-            type: elasticsearch.request
-            with:
-              method: POST
-              path: "/_query"
-              body:
-                query: |-
-                  ROW passed = false,
-                    hints = "query_failed",
-                    actual_row_count = 0,
-                    actual_columns = ""
+          - name: branch_catalog_error
+            type: if
+            condition: "${{ steps.catalog.error.message.size > 0 }}"
+            steps:
+              - name: finalize_query_failed
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false,
+                        mode = "canonical",
+                        hints_json = "[\"The METRICS_INFO query didn't run.\"]",
+                        actual_row_count = 0,
+                        actual_columns_json = "[]"
+            else:
+              - name: finalize_no_rows
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false,
+                        mode = "canonical",
+                        hints_json = "[\"Query ran but returned no rows. Make sure the data stream {{ inputs.stream_name | default: 'sensei-promql-demo' }} exists and has counter metrics.\"]",
+                        actual_row_count = 0,
+                        actual_columns_json = "[]"
     else:
-      - name: finalize_no_rows
+      - name: finalize_missing_stream
         type: elasticsearch.request
         with:
           method: POST
@@ -98,6 +120,7 @@ steps:
           body:
             query: |-
               ROW passed = false,
-                hints = "no_rows",
+                mode = "canonical",
+                hints_json = "[\"Query ran but returned no rows. Make sure the data stream {{ inputs.stream_name | default: 'sensei-promql-demo' }} exists and has counter metrics.\"]",
                 actual_row_count = 0,
-                actual_columns = ""
+                actual_columns_json = "[]"
