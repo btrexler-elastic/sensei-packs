@@ -1,0 +1,16 @@
+{
+  "workflows": [
+    "workflows/r94-setup-promql-tsds.yaml",
+    "workflows/r94-grade-promql.yaml",
+    "workflows/r94-grade-metrics-info.yaml"
+  ],
+  "tools": [
+    "tools/r94-setup-promql-tsds.json",
+    "tools/r94-grade-promql.json",
+    "tools/r94-grade-metrics-info.json"
+  ],
+  "skills": [
+    "skills/promql-in-esql/SKILL.md",
+    "skills/metrics-info-discovery/SKILL.md"
+  ]
+}

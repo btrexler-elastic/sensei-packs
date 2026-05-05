@@ -1,7 +1,8 @@
 name: r94-setup-promql-tsds
 enabled: true
 description: >-
-  Create the Sensei PromQL-in-ES|QL teaching TSDS: template + data stream + seeded counter samples every 3 minutes for three instances, verify PROMQL returns rows, return structured scenario metadata for graders/skills.
+  Create the Sensei PromQL-in-ES|QL teaching TSDS: template + data stream + 30 seeded
+  counter samples (10 × 3-min slices × 3 instances). Returns structured scenario metadata.
 tags: ["release-9-4-enablement"]
 
 triggers:
@@ -60,31 +61,18 @@ steps:
       method: PUT
       path: "/_data_stream/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}"
 
-  - name: capture_now
+  # One ES|QL round-trip gives us all 10 timestamps (t0=oldest, t9=newest).
+  # Column order matches definition order, so slice: N, 1 | first gives column N.
+  - name: get_timestamps
     type: elasticsearch.request
     with:
       method: POST
       path: "/_query"
       body:
-        query: "ROW ts = NOW()"
+        query: "ROW t0=NOW() - 27 minutes, t1=NOW() - 24 minutes, t2=NOW() - 21 minutes, t3=NOW() - 18 minutes, t4=NOW() - 15 minutes, t5=NOW() - 12 minutes, t6=NOW() - 9 minutes, t7=NOW() - 6 minutes, t8=NOW() - 3 minutes, t9=NOW()"
 
-  - name: capture_start
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 27 minutes"
-
-  - name: ts_minus_27m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 27 minutes"
-
-  - name: bulk_slice_27m
+  # Single bulk: 10 time slices × 3 instances = 30 docs.
+  - name: seed_data
     type: elasticsearch.request
     with:
       method: POST
@@ -93,219 +81,65 @@ steps:
         Content-Type: application/x-ndjson
       body: |
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_27m.output.values | first | first }}","instance":"web-1","http_requests_total":1000}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | first }}","instance":"web-1","http_requests_total":1000}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_27m.output.values | first | first }}","instance":"web-2","http_requests_total":500}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | first }}","instance":"web-2","http_requests_total":500}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_27m.output.values | first | first }}","instance":"web-3","http_requests_total":2000}
-
-  - name: ts_minus_24m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 24 minutes"
-
-  - name: bulk_slice_24m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | first }}","instance":"web-3","http_requests_total":2000}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_24m.output.values | first | first }}","instance":"web-1","http_requests_total":1100}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 1, 1 | first }}","instance":"web-1","http_requests_total":1100}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_24m.output.values | first | first }}","instance":"web-2","http_requests_total":540}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 1, 1 | first }}","instance":"web-2","http_requests_total":540}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_24m.output.values | first | first }}","instance":"web-3","http_requests_total":2300}
-
-  - name: ts_minus_21m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 21 minutes"
-
-  - name: bulk_slice_21m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 1, 1 | first }}","instance":"web-3","http_requests_total":2300}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_21m.output.values | first | first }}","instance":"web-1","http_requests_total":1200}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 2, 1 | first }}","instance":"web-1","http_requests_total":1200}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_21m.output.values | first | first }}","instance":"web-2","http_requests_total":580}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 2, 1 | first }}","instance":"web-2","http_requests_total":580}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_21m.output.values | first | first }}","instance":"web-3","http_requests_total":2600}
-
-  - name: ts_minus_18m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 18 minutes"
-
-  - name: bulk_slice_18m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 2, 1 | first }}","instance":"web-3","http_requests_total":2600}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_18m.output.values | first | first }}","instance":"web-1","http_requests_total":1300}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 3, 1 | first }}","instance":"web-1","http_requests_total":1300}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_18m.output.values | first | first }}","instance":"web-2","http_requests_total":620}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 3, 1 | first }}","instance":"web-2","http_requests_total":620}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_18m.output.values | first | first }}","instance":"web-3","http_requests_total":2900}
-
-  - name: ts_minus_15m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 15 minutes"
-
-  - name: bulk_slice_15m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 3, 1 | first }}","instance":"web-3","http_requests_total":2900}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_15m.output.values | first | first }}","instance":"web-1","http_requests_total":1400}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 4, 1 | first }}","instance":"web-1","http_requests_total":1400}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_15m.output.values | first | first }}","instance":"web-2","http_requests_total":660}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 4, 1 | first }}","instance":"web-2","http_requests_total":660}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_15m.output.values | first | first }}","instance":"web-3","http_requests_total":3200}
-
-  - name: ts_minus_12m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 12 minutes"
-
-  - name: bulk_slice_12m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 4, 1 | first }}","instance":"web-3","http_requests_total":3200}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_12m.output.values | first | first }}","instance":"web-1","http_requests_total":1500}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 5, 1 | first }}","instance":"web-1","http_requests_total":1500}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_12m.output.values | first | first }}","instance":"web-2","http_requests_total":700}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 5, 1 | first }}","instance":"web-2","http_requests_total":700}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_12m.output.values | first | first }}","instance":"web-3","http_requests_total":3500}
-
-  - name: ts_minus_9m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 9 minutes"
-
-  - name: bulk_slice_9m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 5, 1 | first }}","instance":"web-3","http_requests_total":3500}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_9m.output.values | first | first }}","instance":"web-1","http_requests_total":1600}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 6, 1 | first }}","instance":"web-1","http_requests_total":1600}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_9m.output.values | first | first }}","instance":"web-2","http_requests_total":740}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 6, 1 | first }}","instance":"web-2","http_requests_total":740}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_9m.output.values | first | first }}","instance":"web-3","http_requests_total":3800}
-
-  - name: ts_minus_6m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 6 minutes"
-
-  - name: bulk_slice_6m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 6, 1 | first }}","instance":"web-3","http_requests_total":3800}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_6m.output.values | first | first }}","instance":"web-1","http_requests_total":1700}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 7, 1 | first }}","instance":"web-1","http_requests_total":1700}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_6m.output.values | first | first }}","instance":"web-2","http_requests_total":780}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 7, 1 | first }}","instance":"web-2","http_requests_total":780}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_6m.output.values | first | first }}","instance":"web-3","http_requests_total":4100}
-
-  - name: ts_minus_3m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 3 minutes"
-
-  - name: bulk_slice_3m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 7, 1 | first }}","instance":"web-3","http_requests_total":4100}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_3m.output.values | first | first }}","instance":"web-1","http_requests_total":1800}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 8, 1 | first }}","instance":"web-1","http_requests_total":1800}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_3m.output.values | first | first }}","instance":"web-2","http_requests_total":820}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 8, 1 | first }}","instance":"web-2","http_requests_total":820}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_3m.output.values | first | first }}","instance":"web-3","http_requests_total":4400}
-
-  - name: ts_minus_0m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/_query"
-      body:
-        query: "ROW ts = NOW() - 0 minutes"
-
-  - name: bulk_slice_0m
-    type: elasticsearch.request
-    with:
-      method: POST
-      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
-      headers:
-        Content-Type: application/x-ndjson
-      body: |
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 8, 1 | first }}","instance":"web-3","http_requests_total":4400}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_0m.output.values | first | first }}","instance":"web-1","http_requests_total":1900}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}","instance":"web-1","http_requests_total":1900}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_0m.output.values | first | first }}","instance":"web-2","http_requests_total":860}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}","instance":"web-2","http_requests_total":860}
         {"create":{}}
-        {"@timestamp":"{{ steps.ts_minus_0m.output.values | first | first }}","instance":"web-3","http_requests_total":4700}
-
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}","instance":"web-3","http_requests_total":4700}
 
   - name: verify_count
     type: elasticsearch.request
@@ -323,7 +157,8 @@ steps:
           PROMQL index=sensei-promql-{{ inputs.stream_suffix | default: 'demo' }} scrape_interval=3m step=3m
             req_rate=(sum by (instance) (rate(http_requests_total)))
           | SORT req_rate DESC
-  - name: gate_enough_docs
+
+  - name: gate_results
     type: if
     condition: "${{ steps.verify_count.output.count >= 25 }}"
     steps:
@@ -338,7 +173,7 @@ steps:
               path: "/_query"
               body:
                 query: |-
-                  ROW stream_name = "sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}", time_window_iso_start = "{{ steps.capture_start.output.values | first | first }}", time_window_iso_end = "{{ steps.capture_now.output.values | first | first }}", instances = "web-1,web-2,web-3", scrape_interval_minutes = 3, doc_count = {{ steps.verify_count.output.count }}, canonical_query = "PROMQL index=sensei-promql-{{ inputs.stream_suffix | default: 'demo' }} scrape_interval=3m step=3m\n  req_rate=(sum by (instance) (rate(http_requests_total)))\n| SORT req_rate DESC"
+                  ROW stream_name = "sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}", time_window_iso_start = "{{ steps.get_timestamps.output.values | first | first }}", time_window_iso_end = "{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}", instances = "web-1,web-2,web-3", scrape_interval_minutes = 3, doc_count = {{ steps.verify_count.output.count }}, canonical_query = "PROMQL index=sensei-promql-{{ inputs.stream_suffix | default: 'demo' }} scrape_interval=3m step=3m\n  req_rate=(sum by (instance) (rate(http_requests_total)))\n| SORT req_rate DESC"
         else:
           - name: abort_empty_promql
             type: elasticsearch.request

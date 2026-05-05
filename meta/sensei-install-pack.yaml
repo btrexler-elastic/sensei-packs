@@ -82,6 +82,13 @@ steps:
           method: GET
           headers:
             Accept: application/json
+      - name: delete_existing_tool
+        type: kibana.request
+        with:
+          method: DELETE
+          path: "/api/agent_builder/tools/{{ steps.fetch_tool_json.output.data.id }}"
+        on-failure:
+          continue: true
       - name: create_tool
         type: kibana.request
         with:

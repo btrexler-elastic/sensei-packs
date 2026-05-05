@@ -1,0 +1,9 @@
+{
+  "name": "release-9-4-enablement",
+  "description": "Elastic 9.4 feature enablement: PromQL-in-ES|QL and METRICS_INFO hands-on drills with live graded exercises against a seeded TSDS.",
+  "version": "1.0.0",
+  "author": { "name": "m-adams", "url": "https://github.com/m-adams" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}
