@@ -40,7 +40,9 @@ Each pack ships **`_manifest.json`** at the pack root (next to `.claude-plugin/`
 }
 ```
 
-Paths are **relative to the pack root**. `workflows` and `tools` are required for installs that register workflows and workflow-tools before plugin install. `skills` is optional but recommended for validation and docs — skill bodies still come from the plugin tree at install time.
+Paths are **relative to the pack root**. `workflows` and `tools` are required for installs that register workflows and workflow-tools before plugin install.
+
+**Installer pairing rule (`sensei-install-pack`):** `workflows[N]` and `tools[N]` must refer to the workflow/tool pair that belongs together (same N). The meta installer posts workflow N, reads the cluster-assigned persisted workflow `id` from that POST response, then registers tool N with `configuration.workflow_id` set to that `id` (Serverless 9.5.0 may suffix ids vs the YAML `name`; see sko-hack `docs/lessons-learned/workflows-9.5-api-changes.md` Issue 5). `skills` is optional but recommended for validation and docs — skill bodies still come from the plugin tree at install time.
 
 ## For Sensei maintainers
 

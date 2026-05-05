@@ -52,7 +52,11 @@ steps:
               method: DELETE
               path: "/api/agent_builder/plugins/{{ foreach.item.id }}"
 
-  - name: install_pack_workflows
+  # Serverless 9.5.0 assigns persisted workflow ids that may be suffixed vs the YAML `name`. Foreach steps do not
+  # bubble inner outputs to later siblings, so we cannot build a stem→id map after a workflows-only loop. Instead,
+  # drive one iteration per manifest index: POST the workflow, capture `steps.create_workflow.output.created[0].id`,
+  # fetch `tools[N]` with the same index, and wire the tool to that id (see workflows-9.5-api-changes.md Issue 5).
+  - name: install_pack_workflows_and_tools
     type: foreach
     foreach: "${{ steps.fetch_manifest.output.data.workflows }}"
     steps:
@@ -71,24 +75,10 @@ steps:
           body:
             workflows:
               - yaml: "${{ steps.fetch_workflow_yaml.output.data }}"
-
-  # After workflows are created, Serverless 9.5.0 persists suffixed workflow ids while keeping the YAML `name`
-  # as `wf.name`. Resolve logical tool.configuration.workflow_id via this registry (same pattern as
-  # scripts/setup-sensei.sh collect_meta_workflow_map / ensure_tools).
-  - name: fetch_workflow_id_registry
-    type: kibana.request
-    with:
-      method: GET
-      path: "/api/workflows?page=1&size=500"
-
-  - name: install_pack_tools
-    type: foreach
-    foreach: "${{ steps.fetch_manifest.output.data.tools }}"
-    steps:
       - name: fetch_tool_json
         type: http
         with:
-          url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/{{ foreach.item }}"
+          url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/{{ steps.fetch_manifest.output.data.tools | slice: foreach.index, 1 | first }}"
           method: GET
           headers:
             Accept: application/json
@@ -103,7 +93,7 @@ steps:
             description: "${{ steps.fetch_tool_json.output.data.description }}"
             tags: ${{ steps.fetch_tool_json.output.data.tags }}
             configuration:
-              workflow_id: '{% assign logical = steps.fetch_tool_json.output.data.configuration.workflow_id %}{% assign resolved = "" %}{% for wf in steps.fetch_workflow_id_registry.output.results %}{% if wf.name == logical %}{% if resolved == "" %}{% assign resolved = wf.id %}{% endif %}{% endif %}{% endfor %}{{ resolved }}'
+              workflow_id: "${{ steps.create_workflow.output.created[0].id }}"
   - name: install_plugin
     type: kibana.request
     with:
