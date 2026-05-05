@@ -1,0 +1,9 @@
+{
+  "name": "spike-test-tool-ids",
+  "description": "Spike — does Elastic-API tool_ids frontmatter wire a plugin skill to a cluster tool?",
+  "version": "0.0.1",
+  "author": { "name": "m-adams", "url": "https://github.com/m-adams" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}

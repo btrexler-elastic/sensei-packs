@@ -1,0 +1,9 @@
+{
+  "name": "spike-test-tools-dir",
+  "description": "Spike — does the install pick up a /tools directory of tool definitions?",
+  "version": "0.0.1",
+  "author": { "name": "m-adams", "url": "https://github.com/m-adams" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}
