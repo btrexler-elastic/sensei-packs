@@ -1,49 +1,51 @@
-# Sensei Packs
+# Sensei packs
 
-Open content packs for **Sensei** — an interactive enablement agent for Elastic Field Engineers, built on Elastic Agent Builder + Elastic Workflows.
+Content packs for **Sensei** — an enablement coach for Elastic Field Engineers, built on Elastic Agent Builder and Elastic Workflows (FY27 FE Summit hackathon submission). This repository is the **installable artifact**: Claude-spec plugins under `packs/`, orchestration workflows under `meta/`, and agent definitions under `agents/`.
 
-Each pack bundles:
+For the full demo script and architecture (including Phase 6 layout rationale), see the coordinating **sko-hack** project: `docs/demo/MASTER_DEMO.md` and `spike/REPORT.md`. Lessons learned for plugins and Workflows 9.5 live in `docs/lessons-learned/agent-builder-plugins.md` and `docs/lessons-learned/workflows-9.5-api-changes.md` in that repo.
 
-- **Skills** — markdown drill scripts that tell Sensei how to tutor on a topic
-- **Workflows** — YAML lab setup + answer-grading automations
-- **Manifest** — what the pack contains, what version of Elastic it targets
+> **Status**: hackathon / tech preview. Target stack is Elastic Serverless **9.5.0**; behaviors may shift between previews.
 
-Packs install directly into a Kibana / Elastic Agent Builder deployment, either:
-
-- via the **Plugins library** ("Install from URL" pointing at this repo), _or_
-- via a **Sensei sync workflow** that fetches the pack files and POSTs them to the relevant Agent Builder + Workflows APIs.
-
-> **Status**: experimental, hackathon project.
-> The format and install mechanism are being validated against Elastic Serverless 9.5.0. Expect breaking changes.
-
-## What's a pack?
+## Layout
 
 ```
-packs/<pack-id>/
-├── pack.yaml                 # manifest: id, title, description, drills[], elastic version target
-├── skills/
-│   └── <skill-id>.md         # Claude Agent Skill format (frontmatter + markdown body)
-└── workflows/
-    └── <workflow-name>.yaml  # Elastic Workflow YAML (setup, grader, etc.)
+packs/<pack-id>/                   # one folder per content pack
+  .claude-plugin/plugin.json       # plugin manifest
+  _manifest.json                   # workflows + tools + skills file lists (see below)
+  skills/<skill-id>/SKILL.md       # one folder per skill
+  workflows/<workflow-id>.yaml     # workflow definitions (POSTed to /api/workflows on install)
+  tools/<tool-id>.json             # tool registrations (POSTed to /api/agent_builder/tools on install)
+
+meta/                              # orchestration owned by Sensei itself, not topic packs
+  packs.json                       # catalog the list-packs workflow returns (stub until populated)
+  sensei-install-pack.yaml         # lands with meta workflow authoring (gav.3)
+  sensei-uninstall-pack.yaml
+  sensei-list-packs.yaml
+  tools/                           # corresponding tool registrations for meta workflows
+
+agents/                            # agent definitions (one JSON file per agent; sensei.json via follow-on work)
 ```
 
-Each drill is one or more skill + workflow pairs. A skill tells Sensei how to tutor; the matching workflows do the deterministic cluster work (provisioning the lab, grading the user's answer).
+Historical spike-era plugins (root `.claude-plugin/`, `skills/`, and `spike/`) are preserved on the **`spike-archive`** Git branch.
 
-## Planned packs
+### `_manifest.json` shape
 
-| Pack ID | Purpose | Status |
-|---|---|---|
-| `core` | Bootstraps Sensei: tutoring meta-skills, list/install pack tools | TBD |
-| `engineer-exam-text-analysis` | Exam-prep drills for analyzers, tokenizers, token filters | TBD |
-| `release-9-4-enablement` | What's new in 9.4: ES\|QL JOIN, semantic_text v2, etc. | TBD |
+Each pack ships **`_manifest.json`** at the pack root (next to `.claude-plugin/`). The install workflow reads it once from `raw.githubusercontent.com`, then fetches each listed file by path. Example:
 
-## How to install a pack
+```json
+{
+  "workflows": ["workflows/r94-grade-promql.yaml"],
+  "tools": ["tools/r94-grade-promql.json"],
+  "skills": ["skills/promql-in-esql/SKILL.md"]
+}
+```
 
-_Pending plugin spike — instructions added after the install mechanism is validated._
+Paths are **relative to the pack root**. `workflows` and `tools` are required for installs that register workflows and workflow-tools before plugin install. `skills` is optional but recommended for validation and docs — skill bodies still come from the plugin tree at install time.
 
-## Authoring a new pack
+## For Sensei maintainers
 
-_Pending pack format lock — guidelines added after the first pack ships._
+- Follow **`allowed-tools`** frontmatter rules when authoring skills (comma-separated list only; other formats are ignored silently). See **`agent-builder-plugins.md`** in the sko-hack lessons-learned folder.
+- Prefer **`kibana.request`** / **`elasticsearch.request`** workflow steps over raw HTTP to cluster APIs (Xsrf and credentials).
 
 ## License
 

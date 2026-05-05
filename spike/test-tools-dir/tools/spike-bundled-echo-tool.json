@@ -1,8 +1,0 @@
-{
-  "id": "spike-bundled-echo-tool",
-  "type": "workflow",
-  "description": "Spike — bundled tool that mirrors back the input text. Used to test whether plugins can ship tool definitions alongside skills.",
-  "configuration": {
-    "workflow_id": "sensei-spike-analyze"
-  }
-}
