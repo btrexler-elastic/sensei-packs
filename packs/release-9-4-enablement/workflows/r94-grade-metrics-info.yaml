@@ -1,0 +1,103 @@
+name: r94-grade-metrics-info
+enabled: true
+description: >-
+  Fallback grader for release-9-4-enablement: runs the canonical METRICS_INFO ES|QL drill against the seeded PromQL TSDS and asserts http_requests_total appears in metric metadata.
+tags: ["release-9-4-enablement"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: stream_name
+    type: string
+    required: false
+
+steps:
+  - name: ensure_stream
+    type: elasticsearch.request
+    on-failure:
+      continue: true
+    with:
+      method: GET
+      path: "/_data_stream/{{ inputs.stream_name | default: 'sensei-promql-demo' }}"
+
+  - name: gate_stream_exists
+    type: if
+    condition: "${{ steps.ensure_stream.output.data_streams.size > 0 }}"
+    steps:
+      - name: catalog
+        type: elasticsearch.request
+        on-failure:
+          continue: true
+        with:
+          method: POST
+          path: "/_query"
+          body:
+            query: |-
+              TS {{ inputs.stream_name | default: 'sensei-promql-demo' }} | METRICS_INFO
+
+      - name: gate_catalog_nonempty
+        type: if
+        condition: "${{ steps.catalog.output.values.size > 0 }}"
+        steps:
+          - name: graded
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  TS {{ inputs.stream_name | default: 'sensei-promql-demo' }} | METRICS_INFO
+                  | WHERE metric_name == "http_requests_total"
+
+          - name: gate_metric_match
+            type: if
+            condition: "${{ steps.graded.output.values.size > 0 }}"
+            steps:
+              - name: finalize_pass
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = true,
+                        hints = "",
+                        actual_row_count = {{ steps.graded.output.values.size }},
+                        actual_columns = "metric_name,data_stream,unit,metric_type,field_type,dimension_fields"
+            else:
+              - name: finalize_wrong_metric
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false,
+                        hints = "wrong_metric",
+                        actual_row_count = 0,
+                        actual_columns = ""
+        else:
+          - name: finalize_query_failed
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false,
+                    hints = "query_failed",
+                    actual_row_count = 0,
+                    actual_columns = ""
+    else:
+      - name: finalize_no_rows
+        type: elasticsearch.request
+        with:
+          method: POST
+          path: "/_query"
+          body:
+            query: |-
+              ROW passed = false,
+                hints = "no_rows",
+                actual_row_count = 0,
+                actual_columns = ""

@@ -1,0 +1,9 @@
+{
+  "id": "r94-grade-metrics-info-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "r94-grade-metrics-info"
+  },
+  "description": "Fallback grader for the 9.4 release pack. Runs the canonical METRICS_INFO query against the seeded TSDS and asserts the http_requests_total metric metadata appears. Use as a swap-in for r94-grade-promql if PromQL fails on the cluster.",
+  "tags": ["release-9-4-enablement"]
+}
