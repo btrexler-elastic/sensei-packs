@@ -1,0 +1,17 @@
+name: sensei-gav3-stub-echo
+enabled: true
+description: Stub echo workflow for meta smoke tests.
+tags: ["sensei-gav3-stub"]
+triggers:
+  - type: manual
+inputs:
+  - name: msg
+    type: string
+    required: true
+steps:
+  - name: log
+    type: console
+    with:
+      message: "{{ inputs.msg }}"
+output:
+  echoed: "{{ inputs.msg }}"

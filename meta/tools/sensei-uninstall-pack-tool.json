@@ -1,0 +1,9 @@
+{
+  "id": "sensei-uninstall-pack-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "sensei-uninstall-pack"
+  },
+  "description": "Uninstall a Sensei content pack from m-adams/sensei-packs (bulk-delete workflows, delete tools, remove plugin + agent bindings).",
+  "tags": ["sensei-meta"]
+}

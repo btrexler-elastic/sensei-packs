@@ -1,0 +1,9 @@
+{
+  "id": "sensei-install-pack-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "sensei-install-pack"
+  },
+  "description": "Install a Sensei content pack from m-adams/sensei-packs (workflows + workflow-tools + plugin install + agent binding merge).",
+  "tags": ["sensei-meta"]
+}

@@ -1,0 +1,132 @@
+name: sensei-install-pack
+enabled: true
+description: >-
+  Install a Sensei pack from m-adams/sensei-packs: POST pack workflows + workflow-tools, install the GitHub plugin subtree, then merge plugin bindings onto an Agent Builder agent (GET → PUT).
+tags: ["sensei-meta"]
+triggers:
+  - type: manual
+inputs:
+  - name: pack_id
+    type: string
+    required: true
+  - name: repo_branch
+    type: string
+    required: false
+  - name: agent_id
+    type: string
+    required: false
+steps:
+  - name: fetch_manifest
+    type: http
+    with:
+      url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/_manifest.json"
+      method: GET
+      headers:
+        Accept: application/json
+
+  - name: fetch_plugin_json
+    type: http
+    with:
+      url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/.claude-plugin/plugin.json"
+      method: GET
+      headers:
+        Accept: application/json
+
+  - name: list_plugins
+    type: kibana.request
+    with:
+      method: GET
+      path: "/api/agent_builder/plugins"
+
+  - name: purge_existing_plugin
+    type: foreach
+    foreach: "${{ steps.list_plugins.output.results }}"
+    steps:
+      - name: delete_same_name_plugin
+        type: if
+        condition: "${{ foreach.item.name == steps.fetch_plugin_json.output.data.name }}"
+        steps:
+          - name: delete_installed_plugin
+            type: kibana.request
+            with:
+              method: DELETE
+              path: "/api/agent_builder/plugins/{{ foreach.item.id }}"
+
+  - name: install_pack_workflows
+    type: foreach
+    foreach: "${{ steps.fetch_manifest.output.data.workflows }}"
+    steps:
+      - name: fetch_workflow_yaml
+        type: http
+        with:
+          url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/{{ foreach.item }}"
+          method: GET
+          headers:
+            Accept: text/plain
+      - name: create_workflow
+        type: kibana.request
+        with:
+          method: POST
+          path: "/api/workflows"
+          body:
+            workflows:
+              - yaml: "${{ steps.fetch_workflow_yaml.output.data }}"
+
+  - name: install_pack_tools
+    type: foreach
+    foreach: "${{ steps.fetch_manifest.output.data.tools }}"
+    steps:
+      - name: fetch_tool_json
+        type: http
+        with:
+          url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/{{ foreach.item }}"
+          method: GET
+          headers:
+            Accept: application/json
+      - name: create_tool
+        type: kibana.request
+        with:
+          method: POST
+          path: "/api/agent_builder/tools"
+          body: "${{ steps.fetch_tool_json.output.data }}"
+
+  - name: install_plugin
+    type: kibana.request
+    with:
+      method: POST
+      path: "/api/agent_builder/plugins/install"
+      body:
+        url: "https://github.com/m-adams/sensei-packs/tree/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}"
+    on-failure:
+      retry:
+        max-attempts: 5
+        delay: "5s"
+
+  - name: get_agent
+    type: kibana.request
+    with:
+      method: GET
+      path: "/api/agent_builder/agents/{{ inputs.agent_id | default: 'sensei' }}"
+
+  - name: update_agent
+    type: kibana.request
+    with:
+      method: PUT
+      path: "/api/agent_builder/agents/{{ inputs.agent_id | default: 'sensei' }}"
+      body:
+        name: "{{ steps.get_agent.output.name }}"
+        description: "{{ steps.get_agent.output.description }}"
+        labels: ${{ steps.get_agent.output.labels }}
+        configuration:
+          instructions: "{{ steps.get_agent.output.configuration.instructions }}"
+          tools: ${{ steps.get_agent.output.configuration.tools }}
+          enable_elastic_capabilities: ${{ steps.get_agent.output.configuration.enable_elastic_capabilities }}
+          skill_ids: ${{ steps.get_agent.output.configuration.skill_ids | concat: steps.install_plugin.output.skill_ids | uniq }}
+          plugin_ids: ${{ steps.get_agent.output.configuration.plugin_ids | push: steps.fetch_plugin_json.output.data.name | uniq }}
+
+output:
+  plugin_id: "{{ steps.fetch_plugin_json.output.data.name }}"
+  plugin_install_uuid: "{{ steps.install_plugin.output.id }}"
+  added_skill_ids: "${{ steps.install_plugin.output.skill_ids }}"
+  total_workflows_posted: "{{ steps.fetch_manifest.output.data.workflows | size }}"
+  total_tools_posted: "{{ steps.fetch_manifest.output.data.tools | size }}"

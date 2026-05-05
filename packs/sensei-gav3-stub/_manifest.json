@@ -1,0 +1,5 @@
+{
+  "workflows": ["workflows/sensei-gav3-stub-echo.yaml"],
+  "tools": ["tools/sensei-gav3-stub-echo-tool.json"],
+  "skills": ["skills/stub-skill/SKILL.md"]
+}

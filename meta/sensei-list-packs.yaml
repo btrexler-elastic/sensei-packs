@@ -1,0 +1,21 @@
+name: sensei-list-packs
+enabled: true
+description: >-
+  Fetch the Sensei pack catalog (meta/packs.json) from the public sensei-packs monorepo.
+tags: ["sensei-meta"]
+triggers:
+  - type: manual
+inputs:
+  - name: repo_branch
+    type: string
+    required: false
+steps:
+  - name: fetch_catalog
+    type: http
+    with:
+      url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/meta/packs.json"
+      method: GET
+      headers:
+        Accept: application/json
+output:
+  catalog: "${{ steps.fetch_catalog.output.data }}"

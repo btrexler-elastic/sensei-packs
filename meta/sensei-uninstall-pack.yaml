@@ -1,0 +1,102 @@
+name: sensei-uninstall-pack
+enabled: true
+description: >-
+  Uninstall a Sensei pack from m-adams/sensei-packs: bulk-delete workflows, delete workflow-tools, strip plugin bindings from an agent, then delete the installed plugin record.
+tags: ["sensei-meta"]
+triggers:
+  - type: manual
+inputs:
+  - name: pack_id
+    type: string
+    required: true
+  - name: repo_branch
+    type: string
+    required: false
+  - name: agent_id
+    type: string
+    required: false
+steps:
+  - name: fetch_manifest
+    type: http
+    with:
+      url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/_manifest.json"
+      method: GET
+      headers:
+        Accept: application/json
+
+  - name: fetch_plugin_json
+    type: http
+    with:
+      url: "https://raw.githubusercontent.com/m-adams/sensei-packs/{{ inputs.repo_branch | default: 'main' }}/packs/{{ inputs.pack_id }}/.claude-plugin/plugin.json"
+      method: GET
+      headers:
+        Accept: application/json
+
+  - name: delete_pack_workflows
+    type: foreach
+    foreach: "${{ steps.fetch_manifest.output.data.workflows }}"
+    steps:
+      - name: delete_one_workflow
+        type: kibana.request
+        with:
+          method: DELETE
+          path: "/api/workflows"
+          body:
+            ids:
+              - "{{ foreach.item | split: '/' | last | replace: '.yaml', '' }}"
+
+  - name: delete_pack_tools
+    type: foreach
+    foreach: "${{ steps.fetch_manifest.output.data.tools }}"
+    steps:
+      - name: delete_one_tool
+        type: kibana.request
+        with:
+          method: DELETE
+          path: "/api/agent_builder/tools/{{ foreach.item | split: '/' | last | replace: '.json', '' }}"
+
+  - name: list_plugins
+    type: kibana.request
+    with:
+      method: GET
+      path: "/api/agent_builder/plugins"
+
+  - name: teardown_matching_plugin
+    type: foreach
+    foreach: "${{ steps.list_plugins.output.results }}"
+    steps:
+      - name: if_matching_plugin
+        type: if
+        condition: "${{ foreach.item.name == steps.fetch_plugin_json.output.data.name }}"
+        steps:
+          - name: get_agent
+            type: kibana.request
+            with:
+              method: GET
+              path: "/api/agent_builder/agents/{{ inputs.agent_id | default: 'sensei' }}"
+
+          - name: update_agent
+            type: kibana.request
+            with:
+              method: PUT
+              path: "/api/agent_builder/agents/{{ inputs.agent_id | default: 'sensei' }}"
+              body:
+                name: "{{ steps.get_agent.output.name }}"
+                description: "{{ steps.get_agent.output.description }}"
+                labels: ${{ steps.get_agent.output.labels }}
+                configuration:
+                  instructions: "{{ steps.get_agent.output.configuration.instructions }}"
+                  tools: ${{ steps.get_agent.output.configuration.tools }}
+                  enable_elastic_capabilities: ${{ steps.get_agent.output.configuration.enable_elastic_capabilities }}
+                  skill_ids: '{% capture skill_json %}[{% assign first=true %}{% if steps.get_agent.output.configuration.skill_ids %}{% for sid in steps.get_agent.output.configuration.skill_ids %}{% assign drop=false %}{% for rid in foreach.item.skill_ids %}{% if sid == rid %}{% assign drop=true %}{% endif %}{% endfor %}{% unless drop %}{% unless first %},{% endunless %}{{ sid | json }}{% assign first=false %}{% endunless %}{% endfor %}{% endif %}]{% endcapture %}{{ skill_json | strip }}'
+                  plugin_ids: '{% capture plugin_json %}[{% assign first=true %}{% if steps.get_agent.output.configuration.plugin_ids %}{% for pid in steps.get_agent.output.configuration.plugin_ids %}{% if pid != steps.fetch_plugin_json.output.data.name %}{% unless first %},{% endunless %}{{ pid | json }}{% assign first=false %}{% endif %}{% endfor %}{% endif %}]{% endcapture %}{{ plugin_json | strip }}'
+
+          - name: delete_plugin
+            type: kibana.request
+            with:
+              method: DELETE
+              path: "/api/agent_builder/plugins/{{ foreach.item.id }}"
+
+output:
+  pack_id: "{{ inputs.pack_id }}"
+  plugin_name: "{{ steps.fetch_plugin_json.output.data.name }}"

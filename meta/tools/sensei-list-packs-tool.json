@@ -1,0 +1,9 @@
+{
+  "id": "sensei-list-packs-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "sensei-list-packs"
+  },
+  "description": "List available Sensei content packs from the sensei-packs catalog (meta/packs.json).",
+  "tags": ["sensei-meta"]
+}

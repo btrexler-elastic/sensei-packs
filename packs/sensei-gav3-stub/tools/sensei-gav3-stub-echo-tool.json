@@ -1,0 +1,9 @@
+{
+  "id": "sensei-gav3-stub-echo-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "sensei-gav3-stub-echo"
+  },
+  "description": "Stub workflow tool for Sensei meta smoke tests.",
+  "tags": ["sensei-gav3-stub"]
+}

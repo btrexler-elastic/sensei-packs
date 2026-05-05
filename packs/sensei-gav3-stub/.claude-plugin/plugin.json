@@ -1,0 +1,9 @@
+{
+  "name": "sensei-gav3-stub-plugin",
+  "description": "Smoke-test stub pack for Sensei meta install/uninstall workflows (gav.3).",
+  "version": "0.0.1",
+  "author": { "name": "m-adams", "url": "https://github.com/m-adams" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}
