@@ -1,10 +1,43 @@
-# Sensei packs
+# Sensei
 
-Content packs for **Sensei** — an enablement coach for Elastic Field Engineers, built on Elastic Agent Builder and Elastic Workflows (FY27 FE Summit hackathon submission). This repository is the **installable artifact**: Claude-spec plugins under `packs/`, orchestration workflows under `meta/`, and agent definitions under `agents/`.
+Sensei is an enablement coach for Elastic Field Engineers, built on **Elastic Agent Builder**, **Elastic Workflows**, and **Agent Builder plugins**. It teaches product capabilities through short, hands-on drills backed by installable **content packs**: each pack adds workflows, registered workflow-tools, and plugin skills that Sensei can use in chat. This repository is the public source for those packs, the meta orchestration workflows Sensei uses to install them, and the baseline `sensei` agent definition.
 
-For the full demo script and architecture (including Phase 6 layout rationale), see the coordinating **sko-hack** project: `docs/demo/MASTER_DEMO.md` and `spike/REPORT.md`. Lessons learned for plugins and Workflows 9.5 live in `docs/lessons-learned/agent-builder-plugins.md` and `docs/lessons-learned/workflows-9.5-api-changes.md` in that repo.
+## Quickstart
 
-> **Status**: hackathon / tech preview. Target stack is Elastic Serverless **9.5.0**; behaviors may shift between previews.
+1. Clone this repository and `cd` into it.
+2. `cp .env.example .env` and fill in `KIBANA_URL`, `ELASTICSEARCH_URL`, and `ELASTICSEARCH_API_KEY` (see comments in `.env.example`).
+3. Run `./scripts/install-sensei.sh` (use `./scripts/install-sensei.sh --plan` first to preview actions).
+4. Open **Kibana** → **Agent Builder** → select the **Sensei** agent.
+5. Ask: **"What packs are available?"** to confirm the catalog tool path.
+
+## Prerequisites
+
+- Elastic Cloud **Serverless 9.5.0+** (a Search project is recommended; Observability or Security projects may also work).
+- An **inference connector** configured on the project (development used Anthropic Claude Sonnet 4.6).
+- A **Kibana API key** with permission to use Agent Builder, Workflows, and related stack APIs.
+- Local tools: `bash`, `curl`, `jq`, `python3`.
+
+## Installation
+
+The `./scripts/install-sensei.sh` script bootstraps the **sensei-meta** workflows (install / uninstall / list packs), registers their workflow-tools with cluster-assigned `workflow_id` values, creates or updates the **Sensei** agent from `agents/sensei.json`, and installs the **`sensei-core`** catalog plugin via the install-pack workflow.
+
+- **`--plan`** — Prints what would be created or skipped; performs **GET** checks only (including `/api/status`). No writes.
+- **`--force`** — Removes Sensei bootstrap objects from Kibana (the Sensei agent, the three meta tools, workflows tagged `sensei-meta`, and the `sensei-core` plugin), then recreates them. Use when workflow IDs drift or artifacts are half-deleted.
+
+**Artifacts created**
+
+| Kind | Names |
+|------|--------|
+| Workflows | `sensei-install-pack`, `sensei-uninstall-pack`, `sensei-list-packs` (tagged `sensei-meta`) |
+| Tools | `sensei-install-pack-tool`, `sensei-uninstall-pack-tool`, `sensei-list-packs-tool` |
+| Agent | `sensei` |
+| Plugin | `sensei-core` (installed from `packs/sensei-core` on GitHub) |
+
+**Idempotency**
+
+Without `--force`, re-running the script skips workflows that already exist, skips tools whose `workflow_id` matches the live workflows, skips agent creation when the baseline matches `agents/sensei.json` (instructions, tools, and `enable_elastic_capabilities`), and skips `_execute` when `sensei-core` skills are already present on the agent. If the agent exists but the baseline differs, the script **merges** the repo definition onto the live agent with **`GET → PUT`** so **`skill_ids`** and **`plugin_ids`** from an existing install are preserved.
+
+Optional environment variable **`KIBANA_SPACE_ID`** (when set and not `default`) scopes all URLs to `/s/<space_id>/`.
 
 ## Layout
 
@@ -16,17 +49,17 @@ packs/<pack-id>/                   # one folder per content pack
   workflows/<workflow-id>.yaml     # workflow definitions (POSTed to /api/workflows on install)
   tools/<tool-id>.json             # tool registrations (POSTed to /api/agent_builder/tools on install)
 
-meta/                              # orchestration owned by Sensei itself, not topic packs
-  packs.json                       # catalog the list-packs workflow returns (stub until populated)
-  sensei-install-pack.yaml         # lands with meta workflow authoring (gav.3)
+meta/                              # orchestration used by Sensei (not topic packs)
+  packs.json                       # catalog data returned by the list-packs workflow
+  sensei-install-pack.yaml
   sensei-uninstall-pack.yaml
   sensei-list-packs.yaml
-  tools/                           # corresponding tool registrations for meta workflows
+  tools/                           # tool JSON for the meta workflows
 
-agents/                            # agent definitions (one JSON file per agent; sensei.json via follow-on work)
+agents/                            # agent definitions (JSON per agent)
+scripts/
+  install-sensei.sh                # bootstrap meta workflows + agent + sensei-core
 ```
-
-Historical spike-era plugins (root `.claude-plugin/`, `skills/`, and `spike/`) are preserved on the **`spike-archive`** Git branch.
 
 ### `_manifest.json` shape
 
@@ -40,15 +73,17 @@ Each pack ships **`_manifest.json`** at the pack root (next to `.claude-plugin/`
 }
 ```
 
-Paths are **relative to the pack root**. `workflows` and `tools` are required for installs that register workflows and workflow-tools before plugin install.
+Paths are **relative to the pack root**. `workflows` and `tools` are required when the pack registers workflows and workflow-tools before plugin install.
 
-**Installer pairing rule (`sensei-install-pack`):** `workflows[N]` and `tools[N]` must refer to the workflow/tool pair that belongs together (same N). The meta installer posts workflow N, reads the cluster-assigned persisted workflow `id` from that POST response, then registers tool N with `configuration.workflow_id` set to that `id` (Serverless 9.5.0 may suffix ids vs the YAML `name`; see sko-hack `docs/lessons-learned/workflows-9.5-api-changes.md` Issue 5). `skills` is optional but recommended for validation and docs — skill bodies still come from the plugin tree at install time.
+**Installer pairing rule (`sensei-install-pack`):** `workflows[N]` and `tools[N]` must be the pair that belongs together (same index **N**). The installer posts workflow **N**, reads the cluster-assigned workflow **`id`** from that POST response, then registers tool **N** with `configuration.workflow_id` set to that **`id`**. On Serverless 9.5.x, persisted workflow IDs may be **suffixed** compared to the YAML `name`. `skills` is optional for orchestration (skill bodies still come from the plugin tree at install time).
 
-## For Sensei maintainers
+## Authoring a pack
 
-- Follow **`allowed-tools`** frontmatter rules when authoring skills (comma-separated list only; other formats are ignored silently). See **`agent-builder-plugins.md`** in the sko-hack lessons-learned folder.
-- Prefer **`kibana.request`** / **`elasticsearch.request`** workflow steps over raw HTTP to cluster APIs (Xsrf and credentials).
+- **`allowed-tools` in `SKILL.md` frontmatter** must be a **comma-separated** list (e.g. `allowed-tools: tool-a, tool-b`). Space-separated IDs, YAML lists, or other formats are ignored or rejected — see Agent Builder plugin documentation for details.
+- Prefer **`kibana.request`** and **`elasticsearch.request`** steps in workflow YAML instead of raw **`http`** calls to Kibana or Elasticsearch, so `kbn-xsrf`, paths, and credentials are handled consistently.
+- Tag workflows with your pack identifier (and/or a dedicated cleanup tag) so operators can find and remove them later.
+- Ship **`_manifest.json`** with **`workflows[]`** and **`tools[]` index-paired** as described above.
 
 ## License
 
-MIT — see [`LICENSE`](./LICENSE).
+MIT — see [LICENSE](./LICENSE).
