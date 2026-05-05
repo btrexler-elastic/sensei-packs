@@ -121,8 +121,8 @@ steps:
           instructions: "{{ steps.get_agent.output.configuration.instructions }}"
           tools: ${{ steps.get_agent.output.configuration.tools }}
           enable_elastic_capabilities: ${{ steps.get_agent.output.configuration.enable_elastic_capabilities }}
-          skill_ids: ${{ steps.get_agent.output.configuration.skill_ids | concat: steps.install_plugin.output.skill_ids | uniq }}
-          plugin_ids: ${{ steps.get_agent.output.configuration.plugin_ids | push: steps.fetch_plugin_json.output.data.name | uniq }}
+          skill_ids: '${{ steps.get_agent.output.configuration.skill_ids | concat: steps.install_plugin.output.skill_ids | uniq }}'
+          plugin_ids: '${{ steps.get_agent.output.configuration.plugin_ids | push: steps.fetch_plugin_json.output.data.name | uniq }}'
 
 output:
   plugin_id: "{{ steps.fetch_plugin_json.output.data.name }}"
