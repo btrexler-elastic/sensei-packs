@@ -72,6 +72,15 @@ steps:
             workflows:
               - yaml: "${{ steps.fetch_workflow_yaml.output.data }}"
 
+  # After workflows are created, Serverless 9.5.0 persists suffixed workflow ids while keeping the YAML `name`
+  # as `wf.name`. Resolve logical tool.configuration.workflow_id via this registry (same pattern as
+  # scripts/setup-sensei.sh collect_meta_workflow_map / ensure_tools).
+  - name: fetch_workflow_id_registry
+    type: kibana.request
+    with:
+      method: GET
+      path: "/api/workflows?page=1&size=500"
+
   - name: install_pack_tools
     type: foreach
     foreach: "${{ steps.fetch_manifest.output.data.tools }}"
@@ -88,8 +97,13 @@ steps:
         with:
           method: POST
           path: "/api/agent_builder/tools"
-          body: "${{ steps.fetch_tool_json.output.data }}"
-
+          body:
+            id: "${{ steps.fetch_tool_json.output.data.id }}"
+            type: "${{ steps.fetch_tool_json.output.data.type }}"
+            description: "${{ steps.fetch_tool_json.output.data.description }}"
+            tags: ${{ steps.fetch_tool_json.output.data.tags }}
+            configuration:
+              workflow_id: '{% assign logical = steps.fetch_tool_json.output.data.configuration.workflow_id %}{% assign resolved = "" %}{% for wf in steps.fetch_workflow_id_registry.output.results %}{% if wf.name == logical %}{% if resolved == "" %}{% assign resolved = wf.id %}{% endif %}{% endif %}{% endfor %}{{ resolved }}'
   - name: install_plugin
     type: kibana.request
     with:
