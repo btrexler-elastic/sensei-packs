@@ -1,0 +1,9 @@
+{
+  "workflows": [],
+  "tools": [],
+  "skills": [
+    "skills/how-sensei-works/SKILL.md",
+    "skills/list-packs/SKILL.md",
+    "skills/install-pack/SKILL.md"
+  ]
+}

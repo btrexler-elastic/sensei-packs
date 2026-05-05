@@ -1,0 +1,12 @@
+{
+  "name": "sensei-core",
+  "version": "0.1.0",
+  "description": "Sensei's persona + the discovery/install mechanics for content packs.",
+  "author": {
+    "name": "Elastic FE Summit hackathon",
+    "url": "https://github.com/m-adams/sensei-packs"
+  },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "Apache-2.0"
+}
