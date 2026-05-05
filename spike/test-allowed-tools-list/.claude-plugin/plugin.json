@@ -1,0 +1,9 @@
+{
+  "name": "spike-test-allowed-tools-list",
+  "description": "Spike — does allowed-tools accept a YAML list of multiple tools?",
+  "version": "0.0.1",
+  "author": { "name": "m-adams", "url": "https://github.com/m-adams" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}

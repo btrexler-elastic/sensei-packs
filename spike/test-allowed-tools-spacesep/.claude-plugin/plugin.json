@@ -1,0 +1,9 @@
+{
+  "name": "spike-test-allowed-tools-spacesep",
+  "description": "Spike — does allowed-tools accept space-separated tool ids?",
+  "version": "0.0.1",
+  "author": { "name": "m-adams", "url": "https://github.com/m-adams" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}
