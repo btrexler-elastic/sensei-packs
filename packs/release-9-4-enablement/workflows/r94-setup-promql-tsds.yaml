@@ -1,0 +1,353 @@
+name: r94-setup-promql-tsds
+enabled: true
+description: >-
+  Create the Sensei PromQL-in-ES|QL teaching TSDS: template + data stream + seeded counter samples every 3 minutes for three instances, verify PROMQL returns rows, return structured scenario metadata for graders/skills.
+tags: ["release-9-4-enablement"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: stream_suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_data_stream
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/_data_stream/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: delete_index_template
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/_index_template/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: create_index_template
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/_index_template/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}"
+      body:
+        index_patterns:
+          - "sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}"
+        data_stream: {}
+        template:
+          settings:
+            index.mode: time_series
+            index.routing_path:
+              - instance
+          mappings:
+            properties:
+              "@timestamp":
+                type: date
+              instance:
+                type: keyword
+                time_series_dimension: true
+              http_requests_total:
+                type: long
+                time_series_metric: counter
+
+  - name: create_data_stream
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/_data_stream/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}"
+
+  - name: capture_now
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW()"
+
+  - name: capture_start
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 27 minutes"
+
+  - name: ts_minus_27m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 27 minutes"
+
+  - name: bulk_slice_27m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_27m.output.values | first | first }}","instance":"web-1","http_requests_total":1000}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_27m.output.values | first | first }}","instance":"web-2","http_requests_total":500}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_27m.output.values | first | first }}","instance":"web-3","http_requests_total":2000}
+
+  - name: ts_minus_24m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 24 minutes"
+
+  - name: bulk_slice_24m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_24m.output.values | first | first }}","instance":"web-1","http_requests_total":1100}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_24m.output.values | first | first }}","instance":"web-2","http_requests_total":540}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_24m.output.values | first | first }}","instance":"web-3","http_requests_total":2300}
+
+  - name: ts_minus_21m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 21 minutes"
+
+  - name: bulk_slice_21m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_21m.output.values | first | first }}","instance":"web-1","http_requests_total":1200}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_21m.output.values | first | first }}","instance":"web-2","http_requests_total":580}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_21m.output.values | first | first }}","instance":"web-3","http_requests_total":2600}
+
+  - name: ts_minus_18m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 18 minutes"
+
+  - name: bulk_slice_18m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_18m.output.values | first | first }}","instance":"web-1","http_requests_total":1300}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_18m.output.values | first | first }}","instance":"web-2","http_requests_total":620}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_18m.output.values | first | first }}","instance":"web-3","http_requests_total":2900}
+
+  - name: ts_minus_15m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 15 minutes"
+
+  - name: bulk_slice_15m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_15m.output.values | first | first }}","instance":"web-1","http_requests_total":1400}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_15m.output.values | first | first }}","instance":"web-2","http_requests_total":660}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_15m.output.values | first | first }}","instance":"web-3","http_requests_total":3200}
+
+  - name: ts_minus_12m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 12 minutes"
+
+  - name: bulk_slice_12m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_12m.output.values | first | first }}","instance":"web-1","http_requests_total":1500}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_12m.output.values | first | first }}","instance":"web-2","http_requests_total":700}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_12m.output.values | first | first }}","instance":"web-3","http_requests_total":3500}
+
+  - name: ts_minus_9m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 9 minutes"
+
+  - name: bulk_slice_9m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_9m.output.values | first | first }}","instance":"web-1","http_requests_total":1600}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_9m.output.values | first | first }}","instance":"web-2","http_requests_total":740}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_9m.output.values | first | first }}","instance":"web-3","http_requests_total":3800}
+
+  - name: ts_minus_6m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 6 minutes"
+
+  - name: bulk_slice_6m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_6m.output.values | first | first }}","instance":"web-1","http_requests_total":1700}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_6m.output.values | first | first }}","instance":"web-2","http_requests_total":780}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_6m.output.values | first | first }}","instance":"web-3","http_requests_total":4100}
+
+  - name: ts_minus_3m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 3 minutes"
+
+  - name: bulk_slice_3m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_3m.output.values | first | first }}","instance":"web-1","http_requests_total":1800}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_3m.output.values | first | first }}","instance":"web-2","http_requests_total":820}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_3m.output.values | first | first }}","instance":"web-3","http_requests_total":4400}
+
+  - name: ts_minus_0m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW ts = NOW() - 0 minutes"
+
+  - name: bulk_slice_0m
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_0m.output.values | first | first }}","instance":"web-1","http_requests_total":1900}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_0m.output.values | first | first }}","instance":"web-2","http_requests_total":860}
+        {"create":{}}
+        {"@timestamp":"{{ steps.ts_minus_0m.output.values | first | first }}","instance":"web-3","http_requests_total":4700}
+
+
+  - name: verify_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}/_count"
+
+  - name: verify_promql
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: |-
+          PROMQL index=sensei-promql-{{ inputs.stream_suffix | default: 'demo' }} scrape_interval=3m step=3m
+            req_rate=(sum by (instance) (rate(http_requests_total)))
+          | SORT req_rate DESC
+  - name: gate_enough_docs
+    type: if
+    condition: "${{ steps.verify_count.output.count >= 25 }}"
+    steps:
+      - name: gate_promql_nonempty
+        type: if
+        condition: "${{ steps.verify_promql.output.values.size > 0 }}"
+        steps:
+          - name: finalize_summary
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW stream_name = "sensei-promql-{{ inputs.stream_suffix | default: 'demo' }}", time_window_iso_start = "{{ steps.capture_start.output.values | first | first }}", time_window_iso_end = "{{ steps.capture_now.output.values | first | first }}", instances = "web-1,web-2,web-3", scrape_interval_minutes = 3, doc_count = {{ steps.verify_count.output.count }}, canonical_query = "PROMQL index=sensei-promql-{{ inputs.stream_suffix | default: 'demo' }} scrape_interval=3m step=3m\n  req_rate=(sum by (instance) (rate(http_requests_total)))\n| SORT req_rate DESC"
+        else:
+          - name: abort_empty_promql
+            type: elasticsearch.request
+            with:
+              method: GET
+              path: "/__sensei_promql_setup_failed__/empty-promql"
+    else:
+      - name: abort_low_doc_count
+        type: elasticsearch.request
+        with:
+          method: GET
+          path: "/__sensei_promql_setup_failed__/low-doc-count"

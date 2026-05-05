@@ -1,0 +1,11 @@
+{
+  "id": "r94-setup-promql-tsds-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "r94-setup-promql-tsds"
+  },
+  "description": "Set up the PromQL-in-ES|QL teaching scenario: creates a TSDS data stream with seeded http_requests_total counter data over the last ~30 minutes for three instances. Returns the stream name, time window, doc count, and the canonical PROMQL query the user should run.",
+  "tags": [
+    "release-9-4-enablement"
+  ]
+}
