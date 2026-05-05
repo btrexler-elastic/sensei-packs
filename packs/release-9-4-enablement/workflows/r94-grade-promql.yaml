@@ -1,0 +1,617 @@
+name: r94-grade-promql
+enabled: true
+description: >-
+  Grade PromQL-in-ES|QL for Sensei release-9-4-enablement: canonical mode verifies the seeded TSDS scenario returns runnable PromQL rows with a req_rate column;
+  challenge mode runs a learner query and checks output shape (<=2 rows, aggregated column name substring). Returns structured ROW output for Agent Builder tools.
+tags: ["release-9-4-enablement"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: mode
+    type: string
+    required: true
+  - name: stream_name
+    type: string
+    required: false
+  - name: user_query
+    type: string
+    required: false
+  - name: time_window_iso_start
+    type: string
+    required: false
+  - name: time_window_iso_end
+    type: string
+    required: false
+
+steps:
+  - name: route_mode
+    type: if
+    condition: "${{ inputs.mode == 'canonical' }}"
+    steps:
+      - name: run_canonical_query
+        type: elasticsearch.request
+        on-failure:
+          continue: true
+        with:
+          method: POST
+          path: "/_query"
+          body:
+            query: |-
+              PROMQL index={{ inputs.stream_name | default: 'sensei-promql-demo' }} scrape_interval=3m step=3m
+                req_rate=(sum by (instance) (rate(http_requests_total)))
+              | SORT req_rate DESC
+      - name: canonical_branch_error
+        type: if
+        condition: "${{ steps.run_canonical_query.error.message.size > 0 }}"
+        steps:
+          - name: finalize_canonical_query_failed
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{}", hints_json = "[\"The query didn't execute - check syntax.\"]", error_snippet = "{{ steps.run_canonical_query.error.message }}"
+        else:
+          - name: canonical_branch_nonempty
+            type: if
+            condition: "${{ steps.run_canonical_query.output.values.size >= 1 }}"
+            steps:
+              - name: canonical_guard_col0
+                type: if
+                condition: "${{ steps.run_canonical_query.output.columns.size > 0 }}"
+                steps:
+                  - name: canonical_chk_0_req_rate
+                    type: if
+                    condition: "${{ steps.run_canonical_query.output.columns[0].name == 'req_rate' }}"
+                    steps:
+                      - name: canonical_pass_col0
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = true, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                    else:
+                      - name: canonical_guard_col1
+                        type: if
+                        condition: "${{ steps.run_canonical_query.output.columns.size > 1 }}"
+                        steps:
+                          - name: canonical_chk_1_req_rate
+                            type: if
+                            condition: "${{ steps.run_canonical_query.output.columns[1].name == 'req_rate' }}"
+                            steps:
+                              - name: canonical_pass_col1
+                                type: elasticsearch.request
+                                with:
+                                  method: POST
+                                  path: "/_query"
+                                  body:
+                                    query: |-
+                                      ROW passed = true, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                            else:
+                              - name: canonical_guard_col2
+                                type: if
+                                condition: "${{ steps.run_canonical_query.output.columns.size > 2 }}"
+                                steps:
+                                  - name: canonical_chk_2_req_rate
+                                    type: if
+                                    condition: "${{ steps.run_canonical_query.output.columns[2].name == 'req_rate' }}"
+                                    steps:
+                                      - name: canonical_pass_col2
+                                        type: elasticsearch.request
+                                        with:
+                                          method: POST
+                                          path: "/_query"
+                                          body:
+                                            query: |-
+                                              ROW passed = true, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                    else:
+                                      - name: canonical_guard_col3
+                                        type: if
+                                        condition: "${{ steps.run_canonical_query.output.columns.size > 3 }}"
+                                        steps:
+                                          - name: canonical_chk_3_req_rate
+                                            type: if
+                                            condition: "${{ steps.run_canonical_query.output.columns[3].name == 'req_rate' }}"
+                                            steps:
+                                              - name: canonical_pass_col3
+                                                type: elasticsearch.request
+                                                with:
+                                                  method: POST
+                                                  path: "/_query"
+                                                  body:
+                                                    query: |-
+                                                      ROW passed = true, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                            else:
+                                              - name: canonical_guard_col4
+                                                type: if
+                                                condition: "${{ steps.run_canonical_query.output.columns.size > 4 }}"
+                                                steps:
+                                                  - name: canonical_chk_4_req_rate
+                                                    type: if
+                                                    condition: "${{ steps.run_canonical_query.output.columns[4].name == 'req_rate' }}"
+                                                    steps:
+                                                      - name: canonical_pass_col4
+                                                        type: elasticsearch.request
+                                                        with:
+                                                          method: POST
+                                                          path: "/_query"
+                                                          body:
+                                                            query: |-
+                                                              ROW passed = true, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                    else:
+                                                      - name: canonical_guard_col5
+                                                        type: if
+                                                        condition: "${{ steps.run_canonical_query.output.columns.size > 5 }}"
+                                                        steps:
+                                                          - name: canonical_chk_5_req_rate
+                                                            type: if
+                                                            condition: "${{ steps.run_canonical_query.output.columns[5].name == 'req_rate' }}"
+                                                            steps:
+                                                              - name: canonical_pass_col5
+                                                                type: elasticsearch.request
+                                                                with:
+                                                                  method: POST
+                                                                  path: "/_query"
+                                                                  body:
+                                                                    query: |-
+                                                                      ROW passed = true, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                            else:
+                                                              - name: canonical_fail_no_req_rate_5
+                                                                type: elasticsearch.request
+                                                                with:
+                                                                  method: POST
+                                                                  path: "/_query"
+                                                                  body:
+                                                                    query: |-
+                                                                      ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+                                                        else:
+                                                          - name: canonical_fail_no_req_rate_tail_5
+                                                            type: elasticsearch.request
+                                                            with:
+                                                              method: POST
+                                                              path: "/_query"
+                                                              body:
+                                                                query: |-
+                                                                  ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+                                                else:
+                                                  - name: canonical_fail_no_req_rate_tail_4
+                                                    type: elasticsearch.request
+                                                    with:
+                                                      method: POST
+                                                      path: "/_query"
+                                                      body:
+                                                        query: |-
+                                                          ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+                                        else:
+                                          - name: canonical_fail_no_req_rate_tail_3
+                                            type: elasticsearch.request
+                                            with:
+                                              method: POST
+                                              path: "/_query"
+                                              body:
+                                                query: |-
+                                                  ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+                                else:
+                                  - name: canonical_fail_no_req_rate_tail_2
+                                    type: elasticsearch.request
+                                    with:
+                                      method: POST
+                                      path: "/_query"
+                                      body:
+                                        query: |-
+                                          ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+                        else:
+                          - name: canonical_fail_no_req_rate_tail_1
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+                else:
+                  - name: canonical_fail_no_req_rate_tail_0
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_canonical_query.output.values.size }} }", hints_json = "[\"Expected a req_rate column from the canonical PromQL leaderboard query.\"]", error_snippet = ""
+            else:
+              - name: finalize_canonical_no_rows
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "canonical", expected_json = "{\"min_rows\":1,\"required_column\":\"req_rate\"}", actual_row_count = {{ steps.run_canonical_query.output.values.size }}, actual_json = "{}", hints_json = "[\"Canonical PromQL returned no rows - verify the demo stream is seeded and your time range covers ~30 minutes of samples.\"]", error_snippet = ""
+    else:
+      - name: route_challenge
+        type: if
+        condition: "${{ inputs.mode == 'challenge' }}"
+        steps:
+          - name: gate_challenge_query_nonempty
+            type: if
+            condition: "${{ inputs.user_query.size > 0 }}"
+            steps:
+              - name: run_challenge_query
+                type: elasticsearch.request
+                on-failure:
+                  continue: true
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      {{ inputs.user_query }}
+              - name: challenge_branch_error
+                type: if
+                condition: "${{ steps.run_challenge_query.error.message.size > 0 }}"
+                steps:
+                  - name: finalize_challenge_query_failed
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = 0, actual_json = "{}", hints_json = "[\"Your query didn't execute - check syntax.\"]", error_snippet = ""
+                else:
+                  - name: challenge_branch_rowcount
+                    type: if
+                    condition: "${{ steps.run_challenge_query.output.values.size > 2 }}"
+                    steps:
+                      - name: finalize_challenge_too_many_rows
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{}", hints_json = "[\"You returned more than 2 rows - the challenge asks for the top 2 instances. Try LIMIT 2 after SORT.\"]", error_snippet = ""
+                    else:
+                      - name: challenge_guard_col0
+                        type: if
+                        condition: "${{ steps.run_challenge_query.output.columns.size > 0 }}"
+                        steps:
+                          - name: challenge_chk_0_avg
+                            type: if
+                            condition: "${{ steps.run_challenge_query.output.columns[0].name contains 'avg_rate' }}"
+                            steps:
+                              - name: challenge_pass_col0_avg
+                                type: elasticsearch.request
+                                with:
+                                  method: POST
+                                  path: "/_query"
+                                  body:
+                                    query: |-
+                                      ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                            else:
+                              - name: challenge_chk_0_peak
+                                type: if
+                                condition: "${{ steps.run_challenge_query.output.columns[0].name contains 'peak_req_rate' }}"
+                                steps:
+                                  - name: challenge_pass_col0_peak
+                                    type: elasticsearch.request
+                                    with:
+                                      method: POST
+                                      path: "/_query"
+                                      body:
+                                        query: |-
+                                          ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                else:
+                                  - name: challenge_chk_0_req
+                                    type: if
+                                    condition: "${{ steps.run_challenge_query.output.columns[0].name contains 'req_rate' }}"
+                                    steps:
+                                      - name: challenge_pass_col0_req
+                                        type: elasticsearch.request
+                                        with:
+                                          method: POST
+                                          path: "/_query"
+                                          body:
+                                            query: |-
+                                              ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                    else:
+                                      - name: challenge_guard_col1
+                                        type: if
+                                        condition: "${{ steps.run_challenge_query.output.columns.size > 1 }}"
+                                        steps:
+                                          - name: challenge_chk_1_avg
+                                            type: if
+                                            condition: "${{ steps.run_challenge_query.output.columns[1].name contains 'avg_rate' }}"
+                                            steps:
+                                              - name: challenge_pass_col1_avg
+                                                type: elasticsearch.request
+                                                with:
+                                                  method: POST
+                                                  path: "/_query"
+                                                  body:
+                                                    query: |-
+                                                      ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                            else:
+                                              - name: challenge_chk_1_peak
+                                                type: if
+                                                condition: "${{ steps.run_challenge_query.output.columns[1].name contains 'peak_req_rate' }}"
+                                                steps:
+                                                  - name: challenge_pass_col1_peak
+                                                    type: elasticsearch.request
+                                                    with:
+                                                      method: POST
+                                                      path: "/_query"
+                                                      body:
+                                                        query: |-
+                                                          ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                else:
+                                                  - name: challenge_chk_1_req
+                                                    type: if
+                                                    condition: "${{ steps.run_challenge_query.output.columns[1].name contains 'req_rate' }}"
+                                                    steps:
+                                                      - name: challenge_pass_col1_req
+                                                        type: elasticsearch.request
+                                                        with:
+                                                          method: POST
+                                                          path: "/_query"
+                                                          body:
+                                                            query: |-
+                                                              ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                    else:
+                                                      - name: challenge_guard_col2
+                                                        type: if
+                                                        condition: "${{ steps.run_challenge_query.output.columns.size > 2 }}"
+                                                        steps:
+                                                          - name: challenge_chk_2_avg
+                                                            type: if
+                                                            condition: "${{ steps.run_challenge_query.output.columns[2].name contains 'avg_rate' }}"
+                                                            steps:
+                                                              - name: challenge_pass_col2_avg
+                                                                type: elasticsearch.request
+                                                                with:
+                                                                  method: POST
+                                                                  path: "/_query"
+                                                                  body:
+                                                                    query: |-
+                                                                      ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                            else:
+                                                              - name: challenge_chk_2_peak
+                                                                type: if
+                                                                condition: "${{ steps.run_challenge_query.output.columns[2].name contains 'peak_req_rate' }}"
+                                                                steps:
+                                                                  - name: challenge_pass_col2_peak
+                                                                    type: elasticsearch.request
+                                                                    with:
+                                                                      method: POST
+                                                                      path: "/_query"
+                                                                      body:
+                                                                        query: |-
+                                                                          ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                else:
+                                                                  - name: challenge_chk_2_req
+                                                                    type: if
+                                                                    condition: "${{ steps.run_challenge_query.output.columns[2].name contains 'req_rate' }}"
+                                                                    steps:
+                                                                      - name: challenge_pass_col2_req
+                                                                        type: elasticsearch.request
+                                                                        with:
+                                                                          method: POST
+                                                                          path: "/_query"
+                                                                          body:
+                                                                            query: |-
+                                                                              ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                    else:
+                                                                      - name: challenge_guard_col3
+                                                                        type: if
+                                                                        condition: "${{ steps.run_challenge_query.output.columns.size > 3 }}"
+                                                                        steps:
+                                                                          - name: challenge_chk_3_avg
+                                                                            type: if
+                                                                            condition: "${{ steps.run_challenge_query.output.columns[3].name contains 'avg_rate' }}"
+                                                                            steps:
+                                                                              - name: challenge_pass_col3_avg
+                                                                                type: elasticsearch.request
+                                                                                with:
+                                                                                  method: POST
+                                                                                  path: "/_query"
+                                                                                  body:
+                                                                                    query: |-
+                                                                                      ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                            else:
+                                                                              - name: challenge_chk_3_peak
+                                                                                type: if
+                                                                                condition: "${{ steps.run_challenge_query.output.columns[3].name contains 'peak_req_rate' }}"
+                                                                                steps:
+                                                                                  - name: challenge_pass_col3_peak
+                                                                                    type: elasticsearch.request
+                                                                                    with:
+                                                                                      method: POST
+                                                                                      path: "/_query"
+                                                                                      body:
+                                                                                        query: |-
+                                                                                          ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                else:
+                                                                                  - name: challenge_chk_3_req
+                                                                                    type: if
+                                                                                    condition: "${{ steps.run_challenge_query.output.columns[3].name contains 'req_rate' }}"
+                                                                                    steps:
+                                                                                      - name: challenge_pass_col3_req
+                                                                                        type: elasticsearch.request
+                                                                                        with:
+                                                                                          method: POST
+                                                                                          path: "/_query"
+                                                                                          body:
+                                                                                            query: |-
+                                                                                              ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                    else:
+                                                                                      - name: challenge_guard_col4
+                                                                                        type: if
+                                                                                        condition: "${{ steps.run_challenge_query.output.columns.size > 4 }}"
+                                                                                        steps:
+                                                                                          - name: challenge_chk_4_avg
+                                                                                            type: if
+                                                                                            condition: "${{ steps.run_challenge_query.output.columns[4].name contains 'avg_rate' }}"
+                                                                                            steps:
+                                                                                              - name: challenge_pass_col4_avg
+                                                                                                type: elasticsearch.request
+                                                                                                with:
+                                                                                                  method: POST
+                                                                                                  path: "/_query"
+                                                                                                  body:
+                                                                                                    query: |-
+                                                                                                      ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                            else:
+                                                                                              - name: challenge_chk_4_peak
+                                                                                                type: if
+                                                                                                condition: "${{ steps.run_challenge_query.output.columns[4].name contains 'peak_req_rate' }}"
+                                                                                                steps:
+                                                                                                  - name: challenge_pass_col4_peak
+                                                                                                    type: elasticsearch.request
+                                                                                                    with:
+                                                                                                      method: POST
+                                                                                                      path: "/_query"
+                                                                                                      body:
+                                                                                                        query: |-
+                                                                                                          ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                                else:
+                                                                                                  - name: challenge_chk_4_req
+                                                                                                    type: if
+                                                                                                    condition: "${{ steps.run_challenge_query.output.columns[4].name contains 'req_rate' }}"
+                                                                                                    steps:
+                                                                                                      - name: challenge_pass_col4_req
+                                                                                                        type: elasticsearch.request
+                                                                                                        with:
+                                                                                                          method: POST
+                                                                                                          path: "/_query"
+                                                                                                          body:
+                                                                                                            query: |-
+                                                                                                              ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                                    else:
+                                                                                                      - name: challenge_guard_col5
+                                                                                                        type: if
+                                                                                                        condition: "${{ steps.run_challenge_query.output.columns.size > 5 }}"
+                                                                                                        steps:
+                                                                                                          - name: challenge_chk_5_avg
+                                                                                                            type: if
+                                                                                                            condition: "${{ steps.run_challenge_query.output.columns[5].name contains 'avg_rate' }}"
+                                                                                                            steps:
+                                                                                                              - name: challenge_pass_col5_avg
+                                                                                                                type: elasticsearch.request
+                                                                                                                with:
+                                                                                                                  method: POST
+                                                                                                                  path: "/_query"
+                                                                                                                  body:
+                                                                                                                    query: |-
+                                                                                                                      ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                                            else:
+                                                                                                              - name: challenge_chk_5_peak
+                                                                                                                type: if
+                                                                                                                condition: "${{ steps.run_challenge_query.output.columns[5].name contains 'peak_req_rate' }}"
+                                                                                                                steps:
+                                                                                                                  - name: challenge_pass_col5_peak
+                                                                                                                    type: elasticsearch.request
+                                                                                                                    with:
+                                                                                                                      method: POST
+                                                                                                                      path: "/_query"
+                                                                                                                      body:
+                                                                                                                        query: |-
+                                                                                                                          ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                                                else:
+                                                                                                                  - name: challenge_chk_5_req
+                                                                                                                    type: if
+                                                                                                                    condition: "${{ steps.run_challenge_query.output.columns[5].name contains 'req_rate' }}"
+                                                                                                                    steps:
+                                                                                                                      - name: challenge_pass_col5_req
+                                                                                                                        type: elasticsearch.request
+                                                                                                                        with:
+                                                                                                                          method: POST
+                                                                                                                          path: "/_query"
+                                                                                                                          body:
+                                                                                                                            query: |-
+                                                                                                                              ROW passed = true, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[]", error_snippet = ""
+                                                                                                                    else:
+                                                                                                                      - name: challenge_fail_no_agg_5
+                                                                                                                        type: elasticsearch.request
+                                                                                                                        with:
+                                                                                                                          method: POST
+                                                                                                                          path: "/_query"
+                                                                                                                          body:
+                                                                                                                            query: |-
+                                                                                                                              ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+                                                                                                        else:
+                                                                                                          - name: challenge_fail_no_agg_tail_5
+                                                                                                            type: elasticsearch.request
+                                                                                                            with:
+                                                                                                              method: POST
+                                                                                                              path: "/_query"
+                                                                                                              body:
+                                                                                                                query: |-
+                                                                                                                  ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+                                                                                        else:
+                                                                                          - name: challenge_fail_no_agg_tail_4
+                                                                                            type: elasticsearch.request
+                                                                                            with:
+                                                                                              method: POST
+                                                                                              path: "/_query"
+                                                                                              body:
+                                                                                                query: |-
+                                                                                                  ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+                                                                        else:
+                                                                          - name: challenge_fail_no_agg_tail_3
+                                                                            type: elasticsearch.request
+                                                                            with:
+                                                                              method: POST
+                                                                              path: "/_query"
+                                                                              body:
+                                                                                query: |-
+                                                                                  ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+                                                        else:
+                                                          - name: challenge_fail_no_agg_tail_2
+                                                            type: elasticsearch.request
+                                                            with:
+                                                              method: POST
+                                                              path: "/_query"
+                                                              body:
+                                                                query: |-
+                                                                  ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+                                        else:
+                                          - name: challenge_fail_no_agg_tail_1
+                                            type: elasticsearch.request
+                                            with:
+                                              method: POST
+                                              path: "/_query"
+                                              body:
+                                                query: |-
+                                                  ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+                        else:
+                          - name: challenge_fail_no_agg_tail_0
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = {{ steps.run_challenge_query.output.values.size }}, actual_json = "{\"row_count\": {{ steps.run_challenge_query.output.values.size }} }", hints_json = "[\"I don't see an aggregated column (no avg_rate/peak_req_rate/etc). Add a STATS line that aggregates req_rate.\"]", error_snippet = ""
+            else:
+              - name: finalize_challenge_missing_query
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "challenge", expected_json = "{\"max_rows\":2,\"aggregate_column_substrings\":[\"avg_rate\",\"peak_req_rate\",\"req_rate\"]}", actual_row_count = 0, actual_json = "{}", hints_json = "[\"challenge mode requires user_query\"]", error_snippet = ""
+        else:
+          - name: finalize_unknown_mode
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "{{ inputs.mode }}", expected_json = "{\"mode\":\"canonical|challenge\"}", actual_row_count = 0, actual_json = "{}", hints_json = "[\"mode must be canonical or challenge\"]", error_snippet = ""
