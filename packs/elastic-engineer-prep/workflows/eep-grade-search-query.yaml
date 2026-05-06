@@ -122,14 +122,40 @@ steps:
                                 type: if
                                 condition: "${{ steps.run_challenge.output.columns[1].name == 'points' }}"
                                 steps:
-                                  - name: finalize_challenge_pass
-                                    type: elasticsearch.request
-                                    with:
-                                      method: POST
-                                      path: "/_query"
-                                      body:
-                                        query: |-
-                                          ROW passed = true, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[]", error_snippet = ""
+                                  - name: gate_row0_points
+                                    type: if
+                                    condition: "${{ steps.run_challenge.output.values[0][1] == 20 }}"
+                                    steps:
+                                      - name: gate_row1_points
+                                        type: if
+                                        condition: "${{ steps.run_challenge.output.values[1][1] == 15 }}"
+                                        steps:
+                                          - name: finalize_challenge_pass
+                                            type: elasticsearch.request
+                                            with:
+                                              method: POST
+                                              path: "/_query"
+                                              body:
+                                                query: |-
+                                                  ROW passed = true, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[]", error_snippet = ""
+                                        else:
+                                          - name: finalize_wrong_row1_points
+                                            type: elasticsearch.request
+                                            with:
+                                              method: POST
+                                              path: "/_query"
+                                              body:
+                                                query: |-
+                                                  ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"Second row should have points=15 (Compare term versus match behavior). Check WHERE difficulty==\\\"beginner\\\" and SORT points DESC.\"]", error_snippet = ""
+                                    else:
+                                      - name: finalize_wrong_row0_points
+                                        type: elasticsearch.request
+                                        with:
+                                          method: POST
+                                          path: "/_query"
+                                          body:
+                                            query: |-
+                                              ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"First row should have points=20 (Configure text analysis for product search). Check WHERE difficulty==\\\"beginner\\\" and SORT points DESC.\"]", error_snippet = ""
                                 else:
                                   - name: finalize_wrong_col1
                                     type: elasticsearch.request

@@ -121,14 +121,40 @@ steps:
                                 type: if
                                 condition: "${{ steps.run_challenge.output.columns[1].name == 'score' }}"
                                 steps:
-                                  - name: finalize_challenge_pass
-                                    type: elasticsearch.request
-                                    with:
-                                      method: POST
-                                      path: "/_query"
-                                      body:
-                                        query: |-
-                                          ROW passed = true, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[]", error_snippet = ""
+                                  - name: gate_row0_score
+                                    type: if
+                                    condition: "${{ steps.run_challenge.output.values[0][1] == 40 }}"
+                                    steps:
+                                      - name: gate_row1_score
+                                        type: if
+                                        condition: "${{ steps.run_challenge.output.values[1][1] == 50 }}"
+                                        steps:
+                                          - name: finalize_challenge_pass
+                                            type: elasticsearch.request
+                                            with:
+                                              method: POST
+                                              path: "/_query"
+                                              body:
+                                                query: |-
+                                                  ROW passed = true, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[]", error_snippet = ""
+                                        else:
+                                          - name: finalize_wrong_row1_score
+                                            type: elasticsearch.request
+                                            with:
+                                              method: POST
+                                              path: "/_query"
+                                              body:
+                                                query: |-
+                                                  ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"Second row should have score=50 (Echo). Check SORT score ASC NULLS LAST and LIMIT 2.\"]", error_snippet = ""
+                                    else:
+                                      - name: finalize_wrong_row0_score
+                                        type: elasticsearch.request
+                                        with:
+                                          method: POST
+                                          path: "/_query"
+                                          body:
+                                            query: |-
+                                              ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"First row should have score=40 (Foxtrot, lowest score). Use SORT score ASC to get bottom docs first.\"]", error_snippet = ""
                                 else:
                                   - name: finalize_wrong_col1
                                     type: elasticsearch.request

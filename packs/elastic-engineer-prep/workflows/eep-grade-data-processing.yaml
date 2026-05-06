@@ -53,16 +53,29 @@ steps:
         else:
           - name: canonical_has_rows
             type: if
-            condition: "${{ steps.run_canonical.output.values.size >= 1 }}"
+            condition: "${{ steps.run_canonical.output.values.size == 1 }}"
             steps:
-              - name: finalize_canonical_pass
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW passed = true, mode = "canonical", actual_row_count = {{ steps.run_canonical.output.values.size }}, hints_json = "[]", error_snippet = ""
+              - name: canonical_check_count
+                type: if
+                condition: "${{ steps.run_canonical.output.values[0][0] == 4 }}"
+                steps:
+                  - name: finalize_canonical_pass
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, mode = "canonical", actual_row_count = {{ steps.run_canonical.output.values.size }}, hints_json = "[]", error_snippet = ""
+                else:
+                  - name: finalize_canonical_wrong_count
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "canonical", actual_row_count = {{ steps.run_canonical.output.values.size }}, hints_json = "[\"COUNT(*) returned {{ steps.run_canonical.output.values[0][0] }} but expected 4. Confirm the reindex ran through the pipeline for all 4 source docs.\"]", error_snippet = ""
             else:
               - name: finalize_canonical_no_rows
                 type: elasticsearch.request
@@ -71,7 +84,7 @@ steps:
                   path: "/_query"
                   body:
                     query: |-
-                      ROW passed = false, mode = "canonical", actual_row_count = 0, hints_json = "[\"Target index has no rows where author_upper IS NOT NULL - reindex or pipeline may not have run.\"]", error_snippet = ""
+                      ROW passed = false, mode = "canonical", actual_row_count = 0, hints_json = "[\"No rows returned by STATS. Confirm setup ran and target index exists.\"]", error_snippet = ""
     else:
       - name: route_challenge
         type: if
