@@ -1,7 +1,39 @@
 {
-  "workflows": [],
-  "tools": [],
+  "workflows": [
+    "workflows/eep-setup-search-lab.yaml",
+    "workflows/eep-grade-search-query.yaml",
+    "workflows/eep-setup-data-management-lab.yaml",
+    "workflows/eep-check-data-management-lab.yaml",
+    "workflows/eep-run-search-exercises.yaml",
+    "workflows/eep-setup-search-app-lab.yaml",
+    "workflows/eep-grade-search-app.yaml",
+    "workflows/eep-setup-data-processing-lab.yaml",
+    "workflows/eep-grade-data-processing.yaml",
+    "workflows/eep-setup-cluster-management-lab.yaml",
+    "workflows/eep-check-cluster-management-lab.yaml"
+  ],
+  "tools": [
+    "tools/eep-setup-search-lab-tool.json",
+    "tools/eep-grade-search-query-tool.json",
+    "tools/eep-setup-data-management-lab-tool.json",
+    "tools/eep-check-data-management-lab-tool.json",
+    "tools/eep-run-search-exercises-tool.json",
+    "tools/eep-setup-search-app-lab-tool.json",
+    "tools/eep-grade-search-app-tool.json",
+    "tools/eep-setup-data-processing-lab-tool.json",
+    "tools/eep-grade-data-processing-tool.json",
+    "tools/eep-setup-cluster-management-lab-tool.json",
+    "tools/eep-check-cluster-management-lab-tool.json"
+  ],
   "skills": [
-    "skills/engineer-prep-overview/SKILL.md"
+    "skills/engineer-prep-overview/SKILL.md",
+    "skills/data-management/SKILL.md",
+    "skills/searching-data/SKILL.md",
+    "skills/developing-search-applications/SKILL.md",
+    "skills/data-processing/SKILL.md",
+    "skills/cluster-management/SKILL.md",
+    "skills/mappings-and-field-types/SKILL.md",
+    "skills/text-analysis-fundamentals/SKILL.md",
+    "skills/query-dsl-drills/SKILL.md"
   ]
 }
