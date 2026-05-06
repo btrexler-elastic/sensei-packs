@@ -9,6 +9,11 @@
     "tools/r94-grade-promql.json",
     "tools/r94-grade-metrics-info.json"
   ],
+  "tool_ids": [
+    "r94-setup-promql-tsds-tool",
+    "r94-grade-promql-tool",
+    "r94-grade-metrics-info-tool"
+  ],
   "skills": [
     "skills/promql-in-esql/SKILL.md",
     "skills/metrics-info-discovery/SKILL.md"

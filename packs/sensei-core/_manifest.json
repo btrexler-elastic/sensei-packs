@@ -1,6 +1,7 @@
 {
   "workflows": [],
   "tools": [],
+  "tool_ids": [],
   "skills": [
     "skills/how-sensei-works/SKILL.md",
     "skills/list-packs/SKILL.md",

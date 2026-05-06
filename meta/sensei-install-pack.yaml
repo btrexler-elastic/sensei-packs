@@ -130,7 +130,8 @@ steps:
         labels: ${{ steps.get_agent.output.labels }}
         configuration:
           instructions: "{{ steps.get_agent.output.configuration.instructions }}"
-          tools: ${{ steps.get_agent.output.configuration.tools }}
+          tools:
+            - tool_ids: '${{ steps.get_agent.output.configuration.tools[0].tool_ids | concat: steps.fetch_manifest.output.data.tool_ids | uniq }}'
           enable_elastic_capabilities: ${{ steps.get_agent.output.configuration.enable_elastic_capabilities }}
           skill_ids: '${{ steps.get_agent.output.configuration.skill_ids | concat: steps.install_plugin.output.skill_ids | uniq }}'
           plugin_ids: '${{ steps.get_agent.output.configuration.plugin_ids | push: steps.fetch_plugin_json.output.data.name | uniq }}'
