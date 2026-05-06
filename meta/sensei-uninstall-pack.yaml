@@ -47,13 +47,15 @@ steps:
 
   - name: delete_pack_tools
     type: foreach
-    foreach: "${{ steps.fetch_manifest.output.data.tools }}"
+    foreach: "${{ steps.fetch_manifest.output.data.tool_ids }}"
     steps:
       - name: delete_one_tool
         type: kibana.request
         with:
           method: DELETE
-          path: "/api/agent_builder/tools/{{ foreach.item | split: '/' | last | replace: '.json', '' }}"
+          path: "/api/agent_builder/tools/{{ foreach.item }}"
+        on-failure:
+          continue: true
 
   - name: list_plugins
     type: kibana.request
