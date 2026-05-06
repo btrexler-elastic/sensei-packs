@@ -1,0 +1,9 @@
+{
+  "name": "elastic-engineer-prep-plugin",
+  "description": "Prep for the Elastic Certified Engineer exam — text analysis, mappings, queries, ingest.",
+  "version": "0.1.0",
+  "author": { "name": "Elastic FE", "url": "https://github.com/m-adams/sensei-packs" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}
