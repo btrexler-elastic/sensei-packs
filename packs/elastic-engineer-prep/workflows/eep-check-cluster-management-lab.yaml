@@ -62,7 +62,7 @@ steps:
                       path: "/_query"
                       body:
                         query: |-
-                          ROW passed = true, status = "yellow", doc_count = {{ steps.get_count.output.count }}, hints_json = "[\"Index is yellow - typical when number_of_replicas > 0 and only one node available.\"]", error_snippet = ""
+                          ROW passed = true, status = "yellow", doc_count = {{ steps.get_count.output.count }}, hints_json = "[\"Index is yellow - this usually means some replicas or shards are unassigned.\"]", error_snippet = ""
                 else:
                   - name: finalize_red
                     type: elasticsearch.request
