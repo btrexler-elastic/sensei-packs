@@ -1,0 +1,101 @@
+name: eep-setup-search-lab
+enabled: true
+description: >-
+  Create a repeatable Elastic Engineer Prep lab index with mappings and sample docs for
+  search, filtering, and scoring drills.
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: index_suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_existing_index
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eep-search-lab-{{ inputs.index_suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: create_index
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/eep-search-lab-{{ inputs.index_suffix | default: 'demo' }}"
+      body:
+        settings:
+          analysis:
+            analyzer:
+              title_english:
+                type: custom
+                tokenizer: standard
+                filter:
+                  - lowercase
+                  - porter_stem
+        mappings:
+          dynamic: strict
+          properties:
+            title:
+              type: text
+              analyzer: title_english
+              fields:
+                keyword:
+                  type: keyword
+            category:
+              type: keyword
+            difficulty:
+              type: keyword
+            points:
+              type: integer
+            duration_minutes:
+              type: integer
+            published:
+              type: boolean
+            published_at:
+              type: date
+            tags:
+              type: keyword
+
+  - name: seed_docs
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/eep-search-lab-{{ inputs.index_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"index":{"_id":"1"}}
+        {"title":"Configure text analysis for product search","category":"search","difficulty":"beginner","points":20,"duration_minutes":25,"published":true,"published_at":"2026-01-10T10:00:00Z","tags":["analysis","mappings"]}
+        {"index":{"_id":"2"}}
+        {"title":"Optimize bool query relevance tuning","category":"search","difficulty":"intermediate","points":35,"duration_minutes":40,"published":true,"published_at":"2026-01-20T10:00:00Z","tags":["query-dsl","scoring"]}
+        {"index":{"_id":"3"}}
+        {"title":"Build ingest pipeline for geo enrichment","category":"ingest","difficulty":"intermediate","points":30,"duration_minutes":35,"published":false,"published_at":"2026-02-01T10:00:00Z","tags":["ingest","pipelines"]}
+        {"index":{"_id":"4"}}
+        {"title":"Debug mapping conflicts in nested payloads","category":"mappings","difficulty":"advanced","points":45,"duration_minutes":50,"published":true,"published_at":"2026-02-10T10:00:00Z","tags":["mappings","nested"]}
+        {"index":{"_id":"5"}}
+        {"title":"Compare term versus match behavior","category":"search","difficulty":"beginner","points":15,"duration_minutes":20,"published":true,"published_at":"2026-02-15T10:00:00Z","tags":["query-dsl","analysis"]}
+
+  - name: verify_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/eep-search-lab-{{ inputs.index_suffix | default: 'demo' }}/_count"
+
+  - name: summarize
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: |-
+          ROW index_name = "eep-search-lab-{{ inputs.index_suffix | default: 'demo' }}", doc_count = {{ steps.verify_count.output.count }}, canonical_query = "FROM eep-search-lab-{{ inputs.index_suffix | default: 'demo' }} | WHERE published == true | WHERE category == \"search\" | MATCH(title, \"query\") | SORT points DESC | KEEP title, points"
+
+output:
+  index_name: "{{ steps.summarize.output.values | first | first }}"
+  doc_count: "{{ steps.summarize.output.values | first | slice: 1, 1 | first }}"
+  canonical_query: "{{ steps.summarize.output.values | first | slice: 2, 1 | first }}"
