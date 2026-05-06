@@ -1,0 +1,142 @@
+name: eep-setup-data-processing-lab
+enabled: true
+description: >-
+  Set up a Data Processing lab: source index with raw docs, an ingest pipeline that
+  adds an uppercase author field, and a target index populated via the Reindex API
+  through that pipeline.
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_target
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eep-dp-target-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: delete_source
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eep-dp-source-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: delete_pipeline
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/_ingest/pipeline/eep-enrich-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: create_source
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/eep-dp-source-{{ inputs.suffix | default: 'demo' }}"
+      body:
+        mappings:
+          dynamic: strict
+          properties:
+            title:
+              type: text
+              fields:
+                keyword:
+                  type: keyword
+            author:
+              type: keyword
+            score:
+              type: integer
+
+  - name: seed_source
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/eep-dp-source-{{ inputs.suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"index":{"_id":"1"}}
+        {"title":"Mappings deep dive","author":"ada","score":42}
+        {"index":{"_id":"2"}}
+        {"title":"Ingest pipeline patterns","author":"bea","score":56}
+        {"index":{"_id":"3"}}
+        {"title":"Painless basics","author":"cal","score":37}
+        {"index":{"_id":"4"}}
+        {"title":"Reindex strategies","author":"dan","score":71}
+
+  - name: create_pipeline
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/_ingest/pipeline/eep-enrich-{{ inputs.suffix | default: 'demo' }}"
+      body:
+        description: "Add uppercase author derived field."
+        processors:
+          - uppercase:
+              field: author
+              target_field: author_upper
+
+  - name: create_target
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/eep-dp-target-{{ inputs.suffix | default: 'demo' }}"
+      body:
+        mappings:
+          dynamic: strict
+          properties:
+            title:
+              type: text
+              fields:
+                keyword:
+                  type: keyword
+            author:
+              type: keyword
+            author_upper:
+              type: keyword
+            score:
+              type: integer
+
+  - name: reindex_through_pipeline
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_reindex?refresh=true"
+      body:
+        source:
+          index: "eep-dp-source-{{ inputs.suffix | default: 'demo' }}"
+        dest:
+          index: "eep-dp-target-{{ inputs.suffix | default: 'demo' }}"
+          pipeline: "eep-enrich-{{ inputs.suffix | default: 'demo' }}"
+
+  - name: verify_target_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/eep-dp-target-{{ inputs.suffix | default: 'demo' }}/_count"
+
+  - name: summarize
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: |-
+          ROW source_index = "eep-dp-source-{{ inputs.suffix | default: 'demo' }}", target_index = "eep-dp-target-{{ inputs.suffix | default: 'demo' }}", pipeline_name = "eep-enrich-{{ inputs.suffix | default: 'demo' }}", target_count = {{ steps.verify_target_count.output.count }}
+
+output:
+  source_index: "{{ steps.summarize.output.values | first | first }}"
+  target_index: "{{ steps.summarize.output.values | first | slice: 1, 1 | first }}"
+  pipeline_name: "{{ steps.summarize.output.values | first | slice: 2, 1 | first }}"
+  target_count: "{{ steps.summarize.output.values | first | slice: 3, 1 | first }}"

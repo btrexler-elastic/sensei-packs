@@ -1,0 +1,11 @@
+{
+  "id": "eep-setup-data-processing-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-setup-data-processing-lab"
+  },
+  "description": "Set up the Data Processing lab: source index, ingest pipeline that adds an uppercase author field, and a target index populated via the Reindex API.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}
