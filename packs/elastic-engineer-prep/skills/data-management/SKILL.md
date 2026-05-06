@@ -38,9 +38,15 @@ After the tool call, say:
 >
 > Tell me when you've reviewed each — I'll run a structural check next.
 
-## Beat 3 — Trimmed install note
+## Beat 3 — Verify
 
-This install subset keeps the setup flow only. After setup, have the learner inspect the template, data stream, and ILM policy in Console and discuss what each resource does.
+After the learner runs each `GET` in Console, ask them to paste the responses. Verify:
+
+- ILM policy response contains `"eep-tsds-demo"` with `hot` and `delete` phases
+- Index template response contains `"data_stream": {}` and the dynamic template mapping
+- Data stream response shows `"eep-logs-demo"` with at least one backing index
+
+If any resource is missing or misconfigured, give a targeted hint pointing to the specific field they need to add or fix.
 
 ## Hard rules
 

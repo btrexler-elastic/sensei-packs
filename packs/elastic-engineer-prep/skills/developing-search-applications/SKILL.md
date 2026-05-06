@@ -15,41 +15,52 @@ Syllabus objectives this skill covers:
 
 In 3-4 sentences:
 
-> Search apps query _aliases_, never raw indices, so you can swap the underlying index without app changes. Sort needs deterministic tie-breakers — usually a unique field like `_id` or a timestamp. Pagination on small data uses `from/size`; deep pagination uses `search_after` plus a Point in Time (PIT). ES|QL exposes the same shape via `SORT … LIMIT N`, but search_after itself is a DSL feature.
+> Search apps query _aliases_, never raw indices, so you can swap the underlying index without changing application code. Sort needs a deterministic tie-breaker — usually a unique field like `_id` or a timestamp — otherwise page boundaries shift between requests. Pagination on small datasets uses `from`/`size`; deep pagination requires `search_after` plus a Point in Time (PIT) to avoid the 10 000-hit `from` cap. Alias management (add, remove, swap) is done through the `_aliases` API.
 
-Close with: _"Want me to set up a small versioned-index lab with an alias so you can practice sort + limit?"_
+Close with: _"Want me to set up a small versioned-index lab so you can practice sort, pagination, and alias swapping in Dev Tools?"_
 
 ## Beat 2 — Setup
 
 Call **`eep-setup-search-app-lab-tool`** with no parameters.
 
-It creates index `eep-app-demo-v1`, alias `eep-app-demo` pointing to it as a write index, and 6 seed docs (Alpha…Foxtrot, scores 90 down to 40).
+It creates index `eep-app-demo-v1`, alias `eep-app-demo` pointing to it as the write index, and 6 seed docs (Alpha…Foxtrot, scores 90 down to 40).
 
-After setup, ask the learner to run this canonical in Discover ES|QL:
+After setup, ask the learner to open **Dev Tools Console** and run the canonical query:
 
-```esql
-FROM eep-app-demo
-| SORT score DESC, title ASC
-| LIMIT 3
-| KEEP title, score
+```
+GET eep-app-demo/_search
+{
+  "sort": [
+    { "score": "desc" },
+    { "title": "asc" }
+  ],
+  "size":    3,
+  "_source": [ "title", "score" ]
+}
 ```
 
-Returns 3 rows: Alpha, Bravo, Charlie.
+Expected result: **3 hits** — Alpha (90), Bravo (80), Charlie (70). Ask them to paste the response.
 
-## Beat 3 — Trimmed install note
+When they paste it, verify `hits.total.value == 6`, `hits.hits.length == 3`, and the first hit has `score: 90`.
 
-This install subset keeps the setup flow only. After setup, discuss sort stability, pagination, and alias swapping as a manual exercise.
+## Beat 3 — Challenge
 
-```esql
-FROM eep-app-demo
-| SORT score ASC, title DESC
-| LIMIT 2
-| KEEP title, score
-```
+Give the learner this challenge:
 
-## Concept reinforcement
+> Write a query against `eep-app-demo` that returns **the bottom 2 docs by score** (lowest scores first), showing just `title` and `score`. Paste your query and the result.
 
-After the exercise, walk the learner through a blue/green index swap pattern in Console:
+Expected result: **2 hits** — Foxtrot (40), then Echo (50).
+
+When they paste the result, verify:
+- `hits.hits.length == 2`
+- `hits.hits[0]._source.score == 40` (Foxtrot)
+- `hits.hits[1]._source.score == 50` (Echo)
+
+If wrong, hint at `"sort": [{ "score": "asc" }]` and `"size": 2`.
+
+## Alias management — Console reference
+
+Walk the learner through the blue/green index swap pattern:
 
 ```
 POST /_aliases
@@ -61,9 +72,17 @@ POST /_aliases
 }
 ```
 
-Mention `search_after` + PIT for deep pagination — the DSL pattern, not ES|QL.
+Explain: applications keep querying `eep-app-demo`; the backing index flips atomically.
+
+## Deep pagination — Console reference
+
+```
+POST eep-app-demo/_pit?keep_alive=1m
+```
+Then use the returned `id` in `search_after` requests. Mention `from`/`size` is limited to 10 000 hits total.
 
 ## Hard rules
 
+- All queries go in **Dev Tools Console**, not Discover or ES|QL.
 - Do not paste raw workflow JSON to the user.
 - Use `eep-app-demo` (the alias), not the underlying versioned index, in examples.

@@ -37,7 +37,7 @@ GET /_cluster/allocation/explain
 { "index": "eep-cluster-demo", "shard": 0, "primary": true }
 ```
 
-Then say: _"Tell me what status you see — green, yellow, or red — and I'll run the structural check."_
+Ask them to paste the health response. Verify `status` is `"green"` or `"yellow"`. If it's red, walk through `GET /_cluster/allocation/explain` together to diagnose the unassigned shard.
 
 ## Beat 3 — Trimmed install note
 
