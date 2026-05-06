@@ -1,0 +1,124 @@
+name: eep-setup-data-management-lab
+enabled: true
+description: >-
+  Set up a data-management lab for Elastic Engineer Prep with ILM, a data-stream index
+  template, dynamic templates, and seeded documents.
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_data_stream
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/_data_stream/eep-logs-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: delete_index_template
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/_index_template/eep-logs-template-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: put_ilm_policy
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/_ilm/policy/eep-tsds-{{ inputs.suffix | default: 'demo' }}"
+      body:
+        policy:
+          phases:
+            hot:
+              actions:
+                rollover:
+                  max_primary_shard_size: "20gb"
+                  max_age: "7d"
+            delete:
+              min_age: "30d"
+              actions:
+                delete: {}
+
+  - name: put_index_template
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/_index_template/eep-logs-template-{{ inputs.suffix | default: 'demo' }}"
+      body:
+        index_patterns:
+          - "eep-logs-{{ inputs.suffix | default: 'demo' }}*"
+        data_stream: {}
+        priority: 500
+        template:
+          settings:
+            index.lifecycle.name: "eep-tsds-{{ inputs.suffix | default: 'demo' }}"
+          mappings:
+            dynamic: true
+            dynamic_templates:
+              - strings_as_text_and_keyword:
+                  match_mapping_type: string
+                  mapping:
+                    type: text
+                    fields:
+                      keyword:
+                        type: keyword
+            properties:
+              "@timestamp":
+                type: date
+              service:
+                type: keyword
+              latency_ms:
+                type: long
+              message:
+                type: text
+
+  - name: create_data_stream
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/_data_stream/eep-logs-{{ inputs.suffix | default: 'demo' }}"
+
+  - name: seed_docs
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/eep-logs-{{ inputs.suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"2026-03-01T10:00:00Z","service":"checkout","latency_ms":120,"message":"Checkout request completed"}
+        {"create":{}}
+        {"@timestamp":"2026-03-01T10:01:00Z","service":"search","latency_ms":85,"message":"Phrase query executed"}
+        {"create":{}}
+        {"@timestamp":"2026-03-01T10:02:00Z","service":"checkout","latency_ms":150,"message":"Payment authorization delayed"}
+
+  - name: verify_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/eep-logs-{{ inputs.suffix | default: 'demo' }}/_count"
+
+  - name: summarize
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: |-
+          ROW ilm_policy = "eep-tsds-{{ inputs.suffix | default: 'demo' }}", template_name = "eep-logs-template-{{ inputs.suffix | default: 'demo' }}", stream_name = "eep-logs-{{ inputs.suffix | default: 'demo' }}", doc_count = {{ steps.verify_count.output.count }}
+
+output:
+  ilm_policy: "{{ steps.summarize.output.values | first | first }}"
+  template_name: "{{ steps.summarize.output.values | first | slice: 1, 1 | first }}"
+  stream_name: "{{ steps.summarize.output.values | first | slice: 2, 1 | first }}"
+  doc_count: "{{ steps.summarize.output.values | first | slice: 3, 1 | first }}"

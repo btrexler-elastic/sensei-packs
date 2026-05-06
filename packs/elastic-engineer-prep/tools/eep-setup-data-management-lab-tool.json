@@ -1,0 +1,11 @@
+{
+  "id": "eep-setup-data-management-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-setup-data-management-lab"
+  },
+  "description": "Set up engineer-prep data-management resources: ILM policy, data-stream template with dynamic templates, and seeded stream docs.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}
