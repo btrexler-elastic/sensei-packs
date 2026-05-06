@@ -1,0 +1,24 @@
+---
+description: "Brief description of when to use this skill (user's question patterns)."
+allowed-tools: tool-id-1,tool-id-2
+---
+
+# Skill title
+
+## Overview
+
+Explain what this skill teaches and when Sensei should use it.
+
+## Content
+
+Add the skill content here. Use clear sections and examples.
+
+## Do
+
+- Keep explanations concise
+- Use examples grounded in Elastic features
+
+## Don't
+
+- Invent topics not in scope for this pack
+- Answer questions outside this skill's domain

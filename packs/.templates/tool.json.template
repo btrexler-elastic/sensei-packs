@@ -1,0 +1,9 @@
+{
+  "id": "tool-id",
+  "type": "workflow",
+  "description": "What this tool does",
+  "configuration": {
+    "workflow_id": "workflow-name"
+  },
+  "tags": []
+}

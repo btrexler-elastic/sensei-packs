@@ -1,0 +1,11 @@
+{
+  "id": "eep-setup-search-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-setup-search-lab"
+  },
+  "description": "Create the Elastic Engineer Prep search lab index with strict mappings, custom analysis, and sample documents for practice drills.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}

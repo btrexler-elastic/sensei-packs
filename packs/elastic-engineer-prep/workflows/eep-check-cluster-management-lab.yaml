@@ -1,0 +1,105 @@
+name: eep-check-cluster-management-lab
+enabled: true
+description: >-
+  Validate the Cluster Management lab: index exists, doc count is correct, and the
+  index health is green or yellow. Returns pass/fail with concise hints.
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: suffix
+    type: string
+    required: false
+
+steps:
+  - name: get_index_health
+    type: elasticsearch.request
+    on-failure:
+      continue: true
+    with:
+      method: GET
+      path: "/_cluster/health/eep-cluster-{{ inputs.suffix | default: 'demo' }}"
+
+  - name: get_count
+    type: elasticsearch.request
+    on-failure:
+      continue: true
+    with:
+      method: GET
+      path: "/eep-cluster-{{ inputs.suffix | default: 'demo' }}/_count"
+
+  - name: route_health
+    type: if
+    condition: "${{ steps.get_index_health.error.message.size == 0 }}"
+    steps:
+      - name: route_count
+        type: if
+        condition: "${{ steps.get_count.error.message.size == 0 }}"
+        steps:
+          - name: gate_doc_count
+            type: if
+            condition: "${{ steps.get_count.output.count == 3 }}"
+            steps:
+              - name: route_status_green
+                type: if
+                condition: "${{ steps.get_index_health.output.status == 'green' }}"
+                steps:
+                  - name: finalize_pass_green
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, status = "green", doc_count = {{ steps.get_count.output.count }}, hints_json = "[]", error_snippet = ""
+                else:
+                  - name: route_status_yellow
+                    type: if
+                    condition: "${{ steps.get_index_health.output.status == 'yellow' }}"
+                    steps:
+                      - name: finalize_pass_yellow
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = true, status = "yellow", doc_count = {{ steps.get_count.output.count }}, hints_json = "[\"Index is yellow - this usually means some replicas or shards are unassigned.\"]", error_snippet = ""
+                    else:
+                      - name: finalize_red
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = false, status = "{{ steps.get_index_health.output.status }}", doc_count = 0, hints_json = "[\"Index health is not green or yellow - check shard allocation explain.\"]", error_snippet = ""
+            else:
+              - name: finalize_wrong_doc_count
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, status = "{{ steps.get_index_health.output.status }}", doc_count = {{ steps.get_count.output.count }}, hints_json = "[\"Expected 3 seeded docs but found {{ steps.get_count.output.count }}. Re-run setup to reseed the index.\"]", error_snippet = ""
+        else:
+          - name: finalize_count_error
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, status = "unknown", doc_count = 0, hints_json = "[\"Could not read doc count - confirm setup ran.\"]", error_snippet = "{{ steps.get_count.error.message }}"
+    else:
+      - name: finalize_health_error
+        type: elasticsearch.request
+        with:
+          method: POST
+          path: "/_query"
+          body:
+            query: |-
+              ROW passed = false, status = "unknown", doc_count = 0, hints_json = "[\"Could not read cluster health - confirm the index exists.\"]", error_snippet = "{{ steps.get_index_health.error.message }}"

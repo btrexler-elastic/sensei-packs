@@ -1,0 +1,11 @@
+{
+  "id": "eep-grade-search-query-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-grade-search-query"
+  },
+  "description": "Grade canonical and challenge ES|QL queries for the Elastic Engineer Prep search lab. Returns pass/fail with concise hints.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}

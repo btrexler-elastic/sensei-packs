@@ -1,0 +1,197 @@
+name: eep-grade-data-processing
+enabled: true
+description: >-
+  Grade Data Processing drills against the reindexed target. Canonical mode verifies
+  the enrichment field author_upper is populated for all 4 docs. Challenge mode runs
+  a learner ES|QL query and asserts: exactly 4 rows, columns[0]='author_upper',
+  columns[1]='c' (count alias).
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: mode
+    type: string
+    required: true
+  - name: target_index
+    type: string
+    required: false
+  - name: user_query
+    type: string
+    required: false
+
+steps:
+  - name: route_mode
+    type: if
+    condition: "${{ inputs.mode == 'canonical' }}"
+    steps:
+      - name: run_canonical
+        type: elasticsearch.request
+        on-failure:
+          continue: true
+        with:
+          method: POST
+          path: "/_query"
+          body:
+            query: |-
+              FROM {{ inputs.target_index | default: 'eep-dp-target-demo' }}
+              | WHERE author_upper IS NOT NULL
+              | STATS c = COUNT(*)
+      - name: canonical_error
+        type: if
+        condition: "${{ steps.run_canonical.error.message.size > 0 }}"
+        steps:
+          - name: finalize_canonical_error
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "canonical", actual_row_count = 0, hints_json = "[\"Canonical query failed - confirm setup ran and target index exists.\"]", error_snippet = "{{ steps.run_canonical.error.message }}"
+        else:
+          - name: canonical_has_rows
+            type: if
+            condition: "${{ steps.run_canonical.output.values.size == 1 }}"
+            steps:
+              - name: canonical_check_count
+                type: if
+                condition: "${{ steps.run_canonical.output.values[0][0] == 4 }}"
+                steps:
+                  - name: finalize_canonical_pass
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, mode = "canonical", actual_row_count = {{ steps.run_canonical.output.values.size }}, hints_json = "[]", error_snippet = ""
+                else:
+                  - name: finalize_canonical_wrong_count
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "canonical", actual_row_count = {{ steps.run_canonical.output.values.size }}, hints_json = "[\"COUNT(*) returned {{ steps.run_canonical.output.values[0][0] }} but expected 4. Confirm the reindex ran through the pipeline for all 4 source docs.\"]", error_snippet = ""
+            else:
+              - name: finalize_canonical_no_rows
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "canonical", actual_row_count = 0, hints_json = "[\"No rows returned by STATS. Confirm setup ran and target index exists.\"]", error_snippet = ""
+    else:
+      - name: route_challenge
+        type: if
+        condition: "${{ inputs.mode == 'challenge' }}"
+        steps:
+          - name: gate_query_present
+            type: if
+            condition: "${{ inputs.user_query.size > 0 }}"
+            steps:
+              - name: run_challenge
+                type: elasticsearch.request
+                on-failure:
+                  continue: true
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      {{ inputs.user_query }}
+              - name: challenge_error
+                type: if
+                condition: "${{ steps.run_challenge.error.message.size > 0 }}"
+                steps:
+                  - name: finalize_challenge_error
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "challenge", actual_row_count = 0, hints_json = "[\"Your query did not execute. Check ES|QL syntax and target index name.\"]", error_snippet = "{{ steps.run_challenge.error.message }}"
+                else:
+                  - name: gate_row_count
+                    type: if
+                    condition: "${{ steps.run_challenge.output.values.size == 4 }}"
+                    steps:
+                      - name: gate_col_count
+                        type: if
+                        condition: "${{ steps.run_challenge.output.columns.size >= 2 }}"
+                        steps:
+                          - name: gate_col0_author_upper
+                            type: if
+                            condition: "${{ steps.run_challenge.output.columns[0].name == 'author_upper' }}"
+                            steps:
+                              - name: gate_col1_c
+                                type: if
+                                condition: "${{ steps.run_challenge.output.columns[1].name == 'c' }}"
+                                steps:
+                                  - name: finalize_challenge_pass
+                                    type: elasticsearch.request
+                                    with:
+                                      method: POST
+                                      path: "/_query"
+                                      body:
+                                        query: |-
+                                          ROW passed = true, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[]", error_snippet = ""
+                                else:
+                                  - name: finalize_wrong_col1
+                                    type: elasticsearch.request
+                                    with:
+                                      method: POST
+                                      path: "/_query"
+                                      body:
+                                        query: |-
+                                          ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"Second column must be 'c'. Use STATS c = COUNT(*) BY author_upper.\"]", error_snippet = ""
+                            else:
+                              - name: finalize_wrong_col0
+                                type: elasticsearch.request
+                                with:
+                                  method: POST
+                                  path: "/_query"
+                                  body:
+                                    query: |-
+                                      ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"First column must be 'author_upper'. Use STATS c = COUNT(*) BY author_upper.\"]", error_snippet = ""
+                        else:
+                          - name: finalize_wrong_col_count
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"Expected at least two columns (author_upper, c).\"]", error_snippet = ""
+                    else:
+                      - name: finalize_wrong_row_count
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = false, mode = "challenge", actual_row_count = {{ steps.run_challenge.output.values.size }}, hints_json = "[\"Expected 4 rows (one per author); got {{ steps.run_challenge.output.values.size }}. Group BY author_upper.\"]", error_snippet = ""
+            else:
+              - name: finalize_missing_query
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "challenge", actual_row_count = 0, hints_json = "[\"Provide user_query when mode is challenge.\"]", error_snippet = ""
+        else:
+          - name: finalize_invalid_mode
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "invalid", actual_row_count = 0, hints_json = "[\"mode must be canonical or challenge.\"]", error_snippet = ""

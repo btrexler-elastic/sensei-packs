@@ -1,0 +1,11 @@
+{
+  "id": "eep-setup-search-app-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-setup-search-app-lab"
+  },
+  "description": "Set up the Developing Search Applications lab: a versioned index plus an alias and seeded documents for sort/limit/alias drills.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}

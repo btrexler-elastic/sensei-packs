@@ -1,0 +1,9 @@
+{
+  "name": "pack-name-plugin",
+  "description": "Brief description of what this pack teaches",
+  "version": "0.1.0",
+  "author": { "name": "Elastic FE", "url": "https://github.com/m-adams/sensei-packs" },
+  "homepage": "https://github.com/m-adams/sensei-packs",
+  "repository": "https://github.com/m-adams/sensei-packs",
+  "license": "MIT"
+}

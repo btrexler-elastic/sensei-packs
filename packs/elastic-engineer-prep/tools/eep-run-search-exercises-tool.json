@@ -1,0 +1,11 @@
+{
+  "id": "eep-run-search-exercises-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-run-search-exercises"
+  },
+  "description": "Run searching-data exercises for async search, aggregations with sub-aggregations, and runtime-field queries.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}

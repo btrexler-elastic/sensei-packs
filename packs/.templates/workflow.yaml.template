@@ -1,0 +1,21 @@
+name: workflow-name
+enabled: true
+description: >-
+  Describe what this workflow does.
+tags: ["pack-name"]
+triggers:
+  - type: manual
+inputs:
+  - name: param_name
+    type: string
+    required: true
+steps:
+  - name: step_one
+    type: http
+    with:
+      url: "https://example.com/api"
+      method: GET
+      headers:
+        Accept: application/json
+output:
+  result: "{{ steps.step_one.output.data }}"

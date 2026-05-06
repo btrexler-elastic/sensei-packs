@@ -1,0 +1,102 @@
+name: eep-setup-search-app-lab
+enabled: true
+description: >-
+  Set up a Developing Search Applications lab: a versioned index plus an alias for
+  zero-downtime indirection, with seeded documents for sort/limit drills.
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_alias
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eep-app-{{ inputs.suffix | default: 'demo' }}-v1/_alias/eep-app-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: delete_index
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eep-app-{{ inputs.suffix | default: 'demo' }}-v1"
+    on-failure:
+      continue: true
+
+  - name: create_index
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/eep-app-{{ inputs.suffix | default: 'demo' }}-v1"
+      body:
+        mappings:
+          dynamic: strict
+          properties:
+            title:
+              type: keyword
+            author:
+              type: keyword
+            score:
+              type: integer
+            published_at:
+              type: date
+
+  - name: create_alias
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_aliases"
+      body:
+        actions:
+          - add:
+              index: "eep-app-{{ inputs.suffix | default: 'demo' }}-v1"
+              alias: "eep-app-{{ inputs.suffix | default: 'demo' }}"
+              is_write_index: true
+
+  - name: seed_docs
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/eep-app-{{ inputs.suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"index":{"_id":"a"}}
+        {"title":"Alpha","author":"ada","score":90,"published_at":"2026-01-01T00:00:00Z"}
+        {"index":{"_id":"b"}}
+        {"title":"Bravo","author":"bea","score":80,"published_at":"2026-01-02T00:00:00Z"}
+        {"index":{"_id":"c"}}
+        {"title":"Charlie","author":"cal","score":70,"published_at":"2026-01-03T00:00:00Z"}
+        {"index":{"_id":"d"}}
+        {"title":"Delta","author":"dan","score":60,"published_at":"2026-01-04T00:00:00Z"}
+        {"index":{"_id":"e"}}
+        {"title":"Echo","author":"eve","score":50,"published_at":"2026-01-05T00:00:00Z"}
+        {"index":{"_id":"f"}}
+        {"title":"Foxtrot","author":"fox","score":40,"published_at":"2026-01-06T00:00:00Z"}
+
+  - name: verify_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/eep-app-{{ inputs.suffix | default: 'demo' }}/_count"
+
+  - name: summarize
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: |-
+          ROW alias_name = "eep-app-{{ inputs.suffix | default: 'demo' }}", index_name = "eep-app-{{ inputs.suffix | default: 'demo' }}-v1", doc_count = {{ steps.verify_count.output.count }}
+
+output:
+  alias_name: "{{ steps.summarize.output.values | first | first }}"
+  index_name: "{{ steps.summarize.output.values | first | slice: 1, 1 | first }}"
+  doc_count: "{{ steps.summarize.output.values | first | slice: 2, 1 | first }}"
