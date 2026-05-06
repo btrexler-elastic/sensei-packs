@@ -1,6 +1,6 @@
 ---
 description: "Use when the user asks about sorting, pagination patterns, or index aliases in search applications."
-allowed-tools: eep-setup-search-app-lab-tool,eep-grade-search-app-tool
+allowed-tools: eep-setup-search-app-lab-tool
 ---
 
 # Developing Search Applications
@@ -35,24 +35,9 @@ FROM eep-app-demo
 
 Returns 3 rows: Alpha, Bravo, Charlie.
 
-## Beat 3 — Grade canonical
+## Beat 3 — Trimmed install note
 
-Call **`eep-grade-search-app-tool`** with `mode=canonical`.
-
-If `passed=true`: confirm and give the challenge.
-If `passed=false`: read `hints_json` and narrate.
-
-## Beat 4 — Grade challenge
-
-Give the challenge verbatim:
-
-> Modify the canonical to return the BOTTOM 2 documents by score — sort score ASC and title DESC as a tie-breaker, then LIMIT 2 and KEEP title, score.
-
-When they paste their query, call `eep-grade-search-app-tool` with `mode=challenge` and `user_query=<their query>`.
-
-Grader checks: 2 rows, columns title then score. Hints name the specific failure.
-
-After three failed attempts, share the working answer:
+This install subset keeps the setup flow only. After setup, discuss sort stability, pagination, and alias swapping as a manual exercise.
 
 ```esql
 FROM eep-app-demo
@@ -63,7 +48,7 @@ FROM eep-app-demo
 
 ## Concept reinforcement
 
-After the challenge, walk the learner through a blue/green index swap pattern in Console:
+After the exercise, walk the learner through a blue/green index swap pattern in Console:
 
 ```
 POST /_aliases
@@ -80,5 +65,4 @@ Mention `search_after` + PIT for deep pagination — the DSL pattern, not ES|QL.
 ## Hard rules
 
 - Do not paste raw workflow JSON to the user.
-- Do not reveal the working answer before two failed attempts.
 - Use `eep-app-demo` (the alias), not the underlying versioned index, in examples.

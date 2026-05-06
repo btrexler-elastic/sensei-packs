@@ -1,6 +1,6 @@
 ---
 description: "Use when the user asks about mappings, multi-fields, reindex/update-by-query, ingest pipelines, or runtime fields with Painless."
-allowed-tools: eep-setup-data-processing-lab-tool,eep-grade-data-processing-tool
+allowed-tools: eep-setup-data-processing-lab-tool
 ---
 
 # Data Processing
@@ -36,24 +36,9 @@ FROM eep-dp-target-demo
 
 Returns 1 row with c = 4.
 
-## Beat 3 — Grade canonical
+## Beat 3 — Trimmed install note
 
-Call **`eep-grade-data-processing-tool`** with `mode=canonical`.
-
-If `passed=true`: confirm and give the challenge.
-If `passed=false`: narrate `hints_json`.
-
-## Beat 4 — Grade challenge
-
-Give the challenge verbatim:
-
-> Modify the canonical to GROUP BY author_upper. Use STATS c = COUNT(*) BY author_upper, KEEP author_upper, c. You should see 4 rows (one per author).
-
-When they paste, call `eep-grade-data-processing-tool` with `mode=challenge` and `user_query=<their query>`.
-
-Grader checks: 4 rows, columns `author_upper` then `c`.
-
-After three failed attempts, share the working answer:
+This install subset keeps the setup flow only. After setup, discuss the pipeline, the reindex, and the derived field as a manual exercise.
 
 ```esql
 FROM eep-dp-target-demo
@@ -63,7 +48,7 @@ FROM eep-dp-target-demo
 
 ## Concept reinforcement
 
-After the challenge, walk through related patterns in Console:
+After the exercise, walk through related patterns in Console:
 
 ```
 GET /_ingest/pipeline/eep-enrich-demo
@@ -79,5 +64,4 @@ For runtime fields with Painless, point them to the Searching Data skill's `runt
 ## Hard rules
 
 - Do not paste raw workflow JSON to the user.
-- Do not reveal the working answer before two failed attempts.
 - Reinforce the pipeline → reindex → query loop as one coherent flow.

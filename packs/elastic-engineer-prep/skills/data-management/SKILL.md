@@ -1,6 +1,6 @@
 ---
 description: "Use when the user asks about index design, dynamic templates, ILM for time-series data, index templates, or data streams."
-allowed-tools: eep-setup-data-management-lab-tool,eep-check-data-management-lab-tool
+allowed-tools: eep-setup-data-management-lab-tool
 ---
 
 # Data Management
@@ -37,26 +37,11 @@ After the tool call, say:
 >
 > Tell me when you've reviewed each — I'll run a structural check next.
 
-## Beat 3 — Check canonical setup
+## Beat 3 — Trimmed install note
 
-Call **`eep-check-data-management-lab-tool`**. It verifies all three resources exist.
-
-If `passed=true`: confirm in one sentence and offer the challenge.
-
-If `passed=false`: read `hints_json` and narrate the missing piece.
-
-## Beat 4 — Challenge
-
-Give the learner this prompt verbatim:
-
-> In Console, add a second dynamic template to `eep-logs-template-demo` that maps any field whose name ends in `_count` to type `long`. Apply it with PUT, then re-run the check tool.
-
-Hint pattern (only after a failed first attempt): "Use `match_pattern: regex` or the `match: '*_count'` shortcut and `mapping: { type: long }`."
-
-After they update the template, call `eep-check-data-management-lab-tool` again. The check tool only verifies the resource still exists — encourage the learner to also run `GET /_index_template/eep-logs-template-demo` and inspect that their dynamic template is present.
+This install subset keeps the setup flow only. After setup, have the learner inspect the template, data stream, and ILM policy in Console and discuss what each resource does.
 
 ## Hard rules
 
 - Do not paste raw workflow JSON to the user.
-- Do not reveal the working dynamic template before two failed attempts.
 - Keep replies under 4 sentences except when presenting Console snippets.

@@ -1,6 +1,6 @@
 ---
 description: "Use when the user asks about shard health, snapshots/restore, searchable snapshots, CCS/CCR, or snapshot lifecycle management."
-allowed-tools: eep-setup-cluster-management-lab-tool,eep-check-cluster-management-lab-tool
+allowed-tools: eep-setup-cluster-management-lab-tool
 ---
 
 # Cluster Management
@@ -38,14 +38,9 @@ GET /_cluster/allocation/explain
 
 Then say: *"Tell me what status you see — green, yellow, or red — and I'll run the structural check."*
 
-## Beat 3 — Check canonical setup
+## Beat 3 — Trimmed install note
 
-Call **`eep-check-cluster-management-lab-tool`**. It verifies the index exists, doc count is correct, and health is green or yellow.
-
-If `passed=true`, narrate the status from the response and offer the concept walkthrough.
-If `passed=false`, narrate `hints_json`.
-
-## Beat 4 — Concept walkthrough (no automated grader)
+This install subset keeps the setup flow only. After setup, discuss health, snapshots, CCS, CCR, and SLM as a manual walkthrough.
 
 The cluster-admin syllabus topics below are best practiced in Console because they require cluster-level privileges and resources we can't provision per learner. For each, share the request shape and have the learner explain what each field does:
 
