@@ -6,6 +6,7 @@ allowed-tools: eep-setup-data-management-lab-tool
 # Data Management
 
 Syllabus objectives this skill covers:
+
 - Define an index that satisfies a given set of requirements
 - Define and use a dynamic template that satisfies a given set of requirements
 - Define an Index Lifecycle Management policy for a time-series index
@@ -17,7 +18,7 @@ In 3-4 sentences:
 
 > Data Management is about deciding how data lives over time. Index templates declare structure for matching index patterns. Data streams give you append-only logs with automatic backing-index rollover. ILM policies say when an index rolls, freezes, or deletes. A dynamic template lets you describe the shape of fields you don't know about yet.
 
-Close with: *"Want me to set up a working ILM + data-stream lab so we can verify the moving parts together?"*
+Close with: _"Want me to set up a working ILM + data-stream lab so we can verify the moving parts together?"_
 
 ## Beat 2 — Setup
 

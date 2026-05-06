@@ -6,6 +6,7 @@ allowed-tools: eep-setup-search-app-lab-tool
 # Developing Search Applications
 
 Syllabus objectives this skill covers:
+
 - Sort the results of a query by a given set of requirements
 - Implement pagination of the results of a search query
 - Define and use index aliases
@@ -14,9 +15,9 @@ Syllabus objectives this skill covers:
 
 In 3-4 sentences:
 
-> Search apps query *aliases*, never raw indices, so you can swap the underlying index without app changes. Sort needs deterministic tie-breakers — usually a unique field like `_id` or a timestamp. Pagination on small data uses `from/size`; deep pagination uses `search_after` plus a Point in Time (PIT). ES|QL exposes the same shape via `SORT … LIMIT N`, but search_after itself is a DSL feature.
+> Search apps query _aliases_, never raw indices, so you can swap the underlying index without app changes. Sort needs deterministic tie-breakers — usually a unique field like `_id` or a timestamp. Pagination on small data uses `from/size`; deep pagination uses `search_after` plus a Point in Time (PIT). ES|QL exposes the same shape via `SORT … LIMIT N`, but search_after itself is a DSL feature.
 
-Close with: *"Want me to set up a small versioned-index lab with an alias so you can practice sort + limit?"*
+Close with: _"Want me to set up a small versioned-index lab with an alias so you can practice sort + limit?"_
 
 ## Beat 2 — Setup
 

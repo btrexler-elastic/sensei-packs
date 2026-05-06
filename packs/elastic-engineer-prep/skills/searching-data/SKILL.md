@@ -6,6 +6,7 @@ allowed-tools: eep-setup-search-lab-tool
 # Searching Data
 
 Syllabus objectives this skill covers:
+
 - Write and execute a search query for terms and/or phrases in one or more fields
 - Boolean combinations of multiple queries and filters
 - Asynchronous search
@@ -19,7 +20,7 @@ In 3-4 sentences:
 
 > ES|QL is the primary search interface in modern Elasticsearch — pipelines of `WHERE`, `STATS`, `SORT`, `MATCH`. Underneath it still translates to the classic search/aggs/filters model, so understanding both surfaces matters for the exam. Aggregations let you bucket and roll up data without returning hits. Runtime fields let you derive a field at query time without reindexing.
 
-Close with: *"Want me to set up a small search lab so we can grade some queries?"*
+Close with: _"Want me to set up a small search lab so we can grade some queries?"_
 
 ## Beat 2 — Setup
 

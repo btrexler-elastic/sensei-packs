@@ -6,6 +6,7 @@ allowed-tools: eep-setup-data-processing-lab-tool
 # Data Processing
 
 Syllabus objectives this skill covers:
+
 - Define a mapping that satisfies a given set of requirements
 - Multi-fields with different data types and/or analyzers
 - Reindex API and Update By Query API
@@ -16,9 +17,9 @@ Syllabus objectives this skill covers:
 
 In 3-4 sentences:
 
-> Data processing is the *transform layer*: take raw incoming docs and reshape them at index time (ingest pipeline), at copy time (reindex), or at query time (runtime field). Multi-fields let one source field be analyzed multiple ways without duplicating storage. Painless is the safe scripting language used in ingest pipelines and runtime fields. The exam-relevant pattern: build a pipeline, attach it to a reindex, verify the target carries the derived fields.
+> Data processing is the _transform layer_: take raw incoming docs and reshape them at index time (ingest pipeline), at copy time (reindex), or at query time (runtime field). Multi-fields let one source field be analyzed multiple ways without duplicating storage. Painless is the safe scripting language used in ingest pipelines and runtime fields. The exam-relevant pattern: build a pipeline, attach it to a reindex, verify the target carries the derived fields.
 
-Close with: *"Want me to set up a source-and-target lab so we can run a pipeline + reindex together?"*
+Close with: _"Want me to set up a source-and-target lab so we can run a pipeline + reindex together?"_
 
 ## Beat 2 — Setup
 

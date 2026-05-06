@@ -6,6 +6,7 @@ allowed-tools: eep-setup-cluster-management-lab-tool
 # Cluster Management
 
 Syllabus objectives this skill covers:
+
 - Diagnose shard issues and repair a cluster's health
 - Backup and restore a cluster and/or specific indices
 - Configure a snapshot to be searchable
@@ -19,7 +20,7 @@ In 3-4 sentences:
 
 > Cluster management is the operations side: keep shards allocated, take backups you can restore, and connect clusters for search and replication. On serverless and Elastic Cloud, much of this is managed for you, but the exam still expects you to read `_cluster/health`, run `allocation/explain`, and author the snapshot/SLM/CCR/CCS request shapes from memory. The lab in this skill gives you a known-healthy index to practice diagnostics against.
 
-Close with: *"Want me to set up a healthy reference index so we can read its health together?"*
+Close with: _"Want me to set up a healthy reference index so we can read its health together?"_
 
 ## Beat 2 — Setup
 
@@ -36,7 +37,7 @@ GET /_cluster/allocation/explain
 { "index": "eep-cluster-demo", "shard": 0, "primary": true }
 ```
 
-Then say: *"Tell me what status you see — green, yellow, or red — and I'll run the structural check."*
+Then say: _"Tell me what status you see — green, yellow, or red — and I'll run the structural check."_
 
 ## Beat 3 — Trimmed install note
 
@@ -88,7 +89,7 @@ PUT /follower-index/_ccr/follow
 { "remote_cluster": "cluster_two", "leader_index": "leader-index" }
 ```
 
-Encourage the learner to explain what each field does and *why* each policy choice matters operationally.
+Encourage the learner to explain what each field does and _why_ each policy choice matters operationally.
 
 ## Hard rules
 
