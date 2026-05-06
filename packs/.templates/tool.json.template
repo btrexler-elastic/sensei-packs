@@ -1,0 +1,29 @@
+{
+  "id": "tool-id",
+  "name": "Tool Name",
+  "description": "What this tool does",
+  "source": {
+    "workflow_id": "workflow-name"
+  },
+  "configuration": {
+    "workflow_id": "workflow-name"
+  },
+  "icon": "bolt",
+  "inputs": {
+    "properties": {
+      "param_name": {
+        "type": "string",
+        "description": "Description of parameter"
+      }
+    },
+    "required": ["param_name"]
+  },
+  "outputs": {
+    "properties": {
+      "result": {
+        "type": "string",
+        "description": "Output result"
+      }
+    }
+  }
+}
