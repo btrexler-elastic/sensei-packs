@@ -1,0 +1,85 @@
+name: eep-setup-cluster-management-lab
+enabled: true
+description: >-
+  Set up a Cluster Management diagnostic lab: a small healthy index used as a
+  reference target for cluster health, index health, and allocation drills.
+tags: ["elastic-engineer-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_index
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eep-cluster-{{ inputs.suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: create_index
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/eep-cluster-{{ inputs.suffix | default: 'demo' }}"
+      body:
+        settings:
+          number_of_shards: 1
+          number_of_replicas: 0
+        mappings:
+          dynamic: strict
+          properties:
+            host:
+              type: keyword
+            level:
+              type: keyword
+            "@timestamp":
+              type: date
+
+  - name: seed_docs
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/eep-cluster-{{ inputs.suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"index":{"_id":"1"}}
+        {"host":"node-a","level":"info","@timestamp":"2026-04-01T10:00:00Z"}
+        {"index":{"_id":"2"}}
+        {"host":"node-a","level":"warn","@timestamp":"2026-04-01T10:05:00Z"}
+        {"index":{"_id":"3"}}
+        {"host":"node-b","level":"info","@timestamp":"2026-04-01T10:10:00Z"}
+
+  - name: cluster_health
+    type: elasticsearch.request
+    on-failure:
+      continue: true
+    with:
+      method: GET
+      path: "/_cluster/health/eep-cluster-{{ inputs.suffix | default: 'demo' }}"
+
+  - name: verify_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/eep-cluster-{{ inputs.suffix | default: 'demo' }}/_count"
+
+  - name: summarize
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: |-
+          ROW index_name = "eep-cluster-{{ inputs.suffix | default: 'demo' }}", doc_count = {{ steps.verify_count.output.count }}, cluster_status = "{{ steps.cluster_health.output.status }}"
+
+output:
+  index_name: "{{ steps.summarize.output.values | first | first }}"
+  doc_count: "{{ steps.summarize.output.values | first | slice: 1, 1 | first }}"
+  cluster_status: "{{ steps.summarize.output.values | first | slice: 2, 1 | first }}"

@@ -1,0 +1,11 @@
+{
+  "id": "eep-check-cluster-management-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-check-cluster-management-lab"
+  },
+  "description": "Validate the Cluster Management lab: index exists, doc count correct, health is green or yellow. Returns pass/fail with concise hints.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}

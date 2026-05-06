@@ -1,0 +1,11 @@
+{
+  "id": "eep-setup-cluster-management-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eep-setup-cluster-management-lab"
+  },
+  "description": "Set up the Cluster Management diagnostic lab: a small healthy index used as the reference target for cluster/index health drills.",
+  "tags": [
+    "elastic-engineer-prep"
+  ]
+}
