@@ -1,13 +1,25 @@
 {
   "workflows": [
     "workflows/eep-setup-search-lab.yaml",
+    "workflows/eep-setup-data-management-lab.yaml",
+    "workflows/eep-setup-search-app-lab.yaml",
+    "workflows/eep-setup-data-processing-lab.yaml",
+    "workflows/eep-setup-cluster-management-lab.yaml",
     "workflows/eep-grade-search-query.yaml"
   ],
   "tools": [
     "tools/eep-setup-search-lab-tool.json",
+    "tools/eep-setup-data-management-lab-tool.json",
+    "tools/eep-setup-search-app-lab-tool.json",
+    "tools/eep-setup-data-processing-lab-tool.json",
+    "tools/eep-setup-cluster-management-lab-tool.json",
     "tools/eep-grade-search-query-tool.json"
   ],
   "skills": [
-    "skills/searching-data/SKILL.md"
+    "skills/searching-data/SKILL.md",
+    "skills/data-management/SKILL.md",
+    "skills/developing-search-applications/SKILL.md",
+    "skills/data-processing/SKILL.md",
+    "skills/cluster-management/SKILL.md"
   ]
 }

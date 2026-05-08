@@ -50,28 +50,33 @@ It creates `eep-search-lab-demo` with:
 
 After the tool returns, tell the learner:
 
-> Lab is ready. Open **Dev Tools Console** and run the canonical query:
+> Lab is ready. Open **Dev Tools Console** and start with this base query — it runs but it's incomplete:
 >
 > ```
 > GET eep-search-lab-demo/_search
 > {
 >   "query": {
 >     "bool": {
->       "must":   [ { "match": { "title": "query" } } ],
->       "filter": [
->         { "term": { "published": true } },
->         { "term": { "category": "search" } }
->       ]
+>       "must": [ { "match": { "title": "query" } } ]
 >     }
->   },
->   "sort":    [ { "points": "desc" } ],
->   "_source": [ "title", "points" ]
+>   }
 > }
 > ```
 >
-> Paste the full response when you have it.
+> Three changes before you run it:
+> 1. Add a `filter` array with two `term` clauses: `published: true` and `category: "search"`.
+> 2. Add `sort` by `points` descending.
+> 3. Add `_source` projecting only `title` and `points`.
+>
+> Run **your modified query** in Console, then paste it back here in the agent console (not the response).
 
-When they paste it, call **`eep-grade-search-query-tool`** with `mode: canonical`.
+When they paste their query, check:
+
+- `filter` is a sibling of `must` inside `bool`, with both term clauses (not stuffed into `must`).
+- `sort` is `[ { "points": "desc" } ]`.
+- `_source` is `[ "title", "points" ]`.
+
+Call out any missing pieces. Then call **`eep-grade-search-query-tool`** with `mode: canonical` to verify the lab is healthy and the reference search returns the expected hit.
 
 - If `passed: true`: confirm — "1 hit: 'Optimize bool query relevance tuning', 35 pts. The `match` on an English-analyzed field matched 'query' via porter stemming ('querying' → 'queri'). `filter` clauses don't affect the score — they just restrict."
 - If `passed: false`: check `hints_json` and report the hint. Most likely the index wasn't set up — ask them to re-run setup.
@@ -82,9 +87,28 @@ When they paste it, call **`eep-grade-search-query-tool`** with `mode: canonical
 
 Say:
 
-> Now write your own query. Return **only the beginner-difficulty docs**, sorted by `points` descending, keeping just `title` and `points`. Run it in Console and paste the result.
+> Goal: return **only published, beginner-difficulty docs**, sorted by `points` descending, keeping just `title` and `points`.
+>
+> Start with this base — it's wrong on purpose. Find the issues and fix it before running:
+>
+> ```
+> GET eep-search-lab-demo/_search
+> {
+>   "query": {
+>     "bool": {
+>       "must": [
+>         { "match": { "difficulty": "beginner" } }
+>       ]
+>     }
+>   },
+>   "sort":    [ { "points": "asc" } ],
+>   "_source": [ "title" ]
+> }
+> ```
+>
+> Run **your fixed query** in Console, then paste it back here in the agent console.
 
-The correct answer uses a `term` filter on `difficulty`, not `must`:
+The correct answer uses a `term` filter on `difficulty`, not a `match` in `must`:
 
 ```
 GET eep-search-lab-demo/_search
@@ -104,19 +128,28 @@ GET eep-search-lab-demo/_search
 
 Expected: 2 hits — "Configure text analysis for product search" (20 pts), then "Compare term versus match behavior" (15 pts).
 
-When they share their result, call **`eep-grade-search-query-tool`** with `mode: challenge`.
+When they paste their query, inspect it against the base:
 
-- `passed: true, hits_count: 2, first_points: 20` → they got it. Explain: using `filter` instead of `must` means no relevance score is computed — correct for exact-value matching on a keyword field.
-- `passed: false, hits_count != 2` → use the hint. Likely using `must` with a `match` on a keyword field, or filtering on the wrong field name.
-- `passed: false, first_points != 20` → sort is wrong. They have the right docs but ascending order.
+- `difficulty` clause should be moved into `filter` and switched from `match` to `term` — `difficulty` is a keyword, exact-match, no scoring needed.
+- `published: true` clause should be added (also as a `term` in `filter`).
+- `sort` should be flipped from `asc` to `desc`.
+- `_source` should be expanded from `[ "title" ]` to `[ "title", "points" ]`.
+
+Call out anything they missed before grading. Then call **`eep-grade-search-query-tool`** with `mode: challenge` — this runs the reference challenge query against the index to confirm the lab is set up correctly.
+
+- `passed: true, hits_count: 2, first_points: 20` → the lab is healthy. If their query also matched the canonical shape, they got it. Explain: using `filter` instead of `must` means no relevance score is computed — correct for exact-value matching on a keyword field.
+- `passed: false, hits_count != 2` → lab issue, ask them to re-run setup. Separately, if their query used `must` with `match` on a keyword field or filtered on the wrong field, point that out.
+- `passed: false, first_points != 20` → lab issue. Re-run setup.
 
 ---
 
 ## Beat 4 — Reference exercises (inline, no grade tool)
 
-Work through these one at a time based on what the learner asks about next. Ask them to run each in Console and paste the response; verify the key fields inline.
+Work through these one at a time based on what the learner asks about next. Each one gives them a **base query that needs editing** before it'll do the right thing — no copy-paste-and-run. Ask them to make the listed changes in Console, run it, then paste **their modified query** back here. Review it against the reference shape and call out any deviations.
 
 ### Aggregations
+
+Base query (buckets only, no metric):
 
 ```
 GET eep-search-lab-demo/_search
@@ -124,31 +157,37 @@ GET eep-search-lab-demo/_search
   "size": 0,
   "aggs": {
     "by_category": {
-      "terms": { "field": "category" },
-      "aggs": {
-        "avg_points": { "avg": { "field": "points" } }
-      }
+      "terms": { "field": "category" }
     }
   }
 }
 ```
 
-Verify: `aggregations.by_category.buckets` has 3 entries (search, ingest, mappings). Each bucket has `avg_points.value`. Explain: `size: 0` skips hits since we only want agg results.
+Tell them: add a sub-aggregation called `avg_points` that computes the average of the `points` field, nested inside the `by_category` bucket.
+
+Their fixed query should add an `aggs` block under `by_category` with `"avg_points": { "avg": { "field": "points" } }`. Their Console response should then show `aggregations.by_category.buckets` with 3 entries (search, ingest, mappings), each with an `avg_points.value`. Explain: `size: 0` skips hits since we only want agg results; the sub-agg runs once per bucket.
 
 ### Async search
 
+Base query (synchronous):
+
 ```
-POST eep-search-lab-demo/_async_search
+GET eep-search-lab-demo/_search
 {
   "query": { "match_all": {} }
 }
 ```
 
-Then poll: `GET /_async_search/<id from response>`
+Tell them: convert this to an **async** search and then poll the result.
+- Change the method/path from `GET …/_search` to `POST …/_async_search`.
+- Run it. The response has an `id`.
+- Then run `GET /_async_search/<id>` to poll.
 
-Verify the initial response has an `id` field. The poll response has `is_running: false` and `response.hits.total.value: 5` when complete.
+Their fixed initial request should target `_async_search`. The poll response should have `is_running: false` and `response.hits.total.value: 5` when complete.
 
 ### Runtime field
+
+Base query — the script always emits `'low'`, so no docs match:
 
 ```
 GET eep-search-lab-demo/_search
@@ -156,7 +195,7 @@ GET eep-search-lab-demo/_search
   "runtime_mappings": {
     "points_tier": {
       "type":   "keyword",
-      "script": "emit(doc['points'].value >= 30 ? 'high' : 'low')"
+      "script": "emit('low')"
     }
   },
   "query":   { "term": { "points_tier": "high" } },
@@ -165,24 +204,44 @@ GET eep-search-lab-demo/_search
 }
 ```
 
-Verify: hits have `fields.points_tier: ["high"]` and `points >= 30`. Explain: the runtime field exists only for this request — nothing is written to the index.
+Tell them: replace the `script` body so it emits `'high'` when `doc['points'].value >= 30`, otherwise `'low'`.
+
+The reference fix:
+
+```
+"script": "emit(doc['points'].value >= 30 ? 'high' : 'low')"
+```
+
+Their Console response should then show hits with `fields.points_tier: ["high"]` and `points >= 30`. Explain: the runtime field exists only for this request — nothing is written to the index.
 
 ### Cross-cluster search (reference only — requires a registered remote)
 
+Base query (single local cluster):
+
 ```
-GET cluster_two:eep-search-lab-demo,eep-search-lab-demo/_search
+GET eep-search-lab-demo/_search
 {
   "query": { "match_all": {} }
 }
 ```
 
-No live lab for CCS. Walk through what each part means: `cluster_two:` is the remote alias registered via `PUT /_cluster/settings`. The local index comes after the comma with no prefix.
+Tell them: rewrite the index path so it searches the same index on a remote cluster aliased `cluster_two` **and** the local copy in one request. They don't need to actually run it — there's no registered remote in the lab — just write what the path would look like.
+
+Reference fix:
+
+```
+GET cluster_two:eep-search-lab-demo,eep-search-lab-demo/_search
+```
+
+Walk through what each part means: `cluster_two:` is the remote alias registered via `PUT /_cluster/settings`. The local index comes after the comma with no prefix.
 
 ---
 
 ## Hard rules
 
 - All queries go in **Dev Tools Console** — never Discover or ES|QL.
+- Always present a **base query that requires modification** — never a finished query the learner can copy-paste-and-run. The point is to force them to read, edit, and reason about each clause.
+- The learner pastes **their modified query** (not the response) back into the agent console. Review the diff between base and what they pasted; call out anything they missed.
 - Call the grade tool after **every** exercise that has a graded mode; don't skip it.
 - Do not paste raw workflow JSON to the user.
 - One query block per turn is enough — don't front-load all patterns.
