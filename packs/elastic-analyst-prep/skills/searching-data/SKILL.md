@@ -57,7 +57,7 @@ After the tool returns, tell the learner:
 
 When they confirm, call **`eap-grade-discover-lab-tool`** with `saved_search_title: "Lab Errors"`.
 
-- `passed: true`: confirm — "Found it. Two error docs in this dataset: a `500` from `web-2` and a `404` from `web-2` a few minutes later — same host, different failure modes. Your KQL likely read `response_code: "500" or response_code: "404"`, or you built it as two `+ Add filter` pills OR'd together. Either is valid; the search bar is generally faster for simple disjunctions."
+- `passed: true`: confirm — "Found it. Two error docs in this dataset: a `500` from `web-2` and a `404` from `web-2` a few minutes later — same host, different failure modes. Your KQL likely read `response_code: "500" or response_code: "404"`, or you built it as two `+ Add filter` pills OR'd together. Either is valid; the search bar is generally faster for simple disjunctions." The result also includes `saved_object_type` (`"search"` or `"discover-session"`) — newer Kibana versions save Discover state as a `discover-session` object instead of the classic `search` type; the grading tool checks both, so either is fine and there's no need to mention this to the learner unless they ask.
 - `passed: false`: report the hint from `hints_json`. Most common cause is the data view not being created yet, or the saved search title not matching exactly (it's case-sensitive in this check).
 
 ---

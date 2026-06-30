@@ -4,7 +4,8 @@ description: >-
   Grade Searching Data exercises by inspecting Kibana saved objects directly in the
   .kibana* index. Checks for a data view (index-pattern) over the lab index with the
   time field set, and a saved search with the requested title whose stored query/filter
-  match the error-search exercise.
+  match the error-search exercise. Supports both the classic "search" saved object
+  type and the newer "discover-session" type introduced in later Kibana versions.
 tags: ["elastic-analyst-prep"]
 
 triggers:
@@ -36,6 +37,9 @@ steps:
               - wildcard:
                   index-pattern.title: "{{ inputs.index_pattern_title | default: 'eap-analyst-lab*' }}"
 
+  # Match either the classic "search" saved object or the newer "discover-session"
+  # saved object introduced in later Kibana versions — title field path differs by
+  # type, so both are OR'd via should + minimum_should_match alongside the type filter.
   - name: find_saved_search
     type: elasticsearch.request
     on-failure:
@@ -48,10 +52,14 @@ steps:
         query:
           bool:
             filter:
-              - term:
-                  type: "search"
+              - terms:
+                  type: ["search", "discover-session"]
+            should:
               - term:
                   search.title.keyword: "{{ inputs.saved_search_title }}"
+              - term:
+                  discover-session.title.keyword: "{{ inputs.saved_search_title }}"
+            minimum_should_match: 1
 
   - name: gate_index_pattern
     type: if
@@ -61,27 +69,55 @@ steps:
         type: if
         condition: "${{ steps.find_saved_search.output.hits.total.value >= 1 }}"
         steps:
-          - name: check_query_content
+          # Branch on which saved object type actually matched, since the query/filter
+          # content lives under a different attribute key per type.
+          - name: route_by_type
             type: if
-            condition: "${{ steps.find_saved_search.output.hits.hits[0]._source.search.kibanaSavedObjectMeta.searchSourceJSON contains 'response_code' }}"
+            condition: "${{ steps.find_saved_search.output.hits.hits[0]._source.type == 'discover-session' }}"
             steps:
-              - name: finalize_pass
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW passed = true, has_index_pattern = true, has_saved_search = true, query_mentions_response_code = true, hints_json = "[]"
+              - name: check_query_content_session
+                type: if
+                condition: "${{ steps.find_saved_search.output.hits.hits[0]._source['discover-session'].kibanaSavedObjectMeta.searchSourceJSON contains 'response_code' }}"
+                steps:
+                  - name: finalize_pass_session
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, has_index_pattern = true, has_saved_search = true, saved_object_type = "discover-session", query_mentions_response_code = true, hints_json = "[]"
+                else:
+                  - name: finalize_no_query_match_session
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, has_index_pattern = true, has_saved_search = true, saved_object_type = "discover-session", query_mentions_response_code = false, hints_json = "[\"Saved Discover session found, but its stored query/filter doesn't reference response_code. Make sure your KQL or pinned filter targets the response_code field.\"]"
             else:
-              - name: finalize_no_query_match
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW passed = false, has_index_pattern = true, has_saved_search = true, query_mentions_response_code = false, hints_json = "[\"Saved search found, but its stored query/filter doesn't reference response_code. Make sure your KQL or pinned filter targets the response_code field.\"]"
+              - name: check_query_content_classic
+                type: if
+                condition: "${{ steps.find_saved_search.output.hits.hits[0]._source.search.kibanaSavedObjectMeta.searchSourceJSON contains 'response_code' }}"
+                steps:
+                  - name: finalize_pass_classic
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, has_index_pattern = true, has_saved_search = true, saved_object_type = "search", query_mentions_response_code = true, hints_json = "[]"
+                else:
+                  - name: finalize_no_query_match_classic
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, has_index_pattern = true, has_saved_search = true, saved_object_type = "search", query_mentions_response_code = false, hints_json = "[\"Saved search found, but its stored query/filter doesn't reference response_code. Make sure your KQL or pinned filter targets the response_code field.\"]"
         else:
           - name: finalize_no_saved_search
             type: elasticsearch.request
@@ -90,7 +126,7 @@ steps:
               path: "/_query"
               body:
                 query: |-
-                  ROW passed = false, has_index_pattern = true, has_saved_search = false, query_mentions_response_code = false, hints_json = "[\"No saved search found with that title. In Discover, run your query/filter then use Save in the toolbar.\"]"
+                  ROW passed = false, has_index_pattern = true, has_saved_search = false, saved_object_type = "none", query_mentions_response_code = false, hints_json = "[\"No saved search or Discover session found with that title. In Discover, run your query/filter then use Save in the toolbar.\"]"
     else:
       - name: finalize_no_index_pattern
         type: elasticsearch.request
@@ -99,4 +135,4 @@ steps:
           path: "/_query"
           body:
             query: |-
-              ROW passed = false, has_index_pattern = false, has_saved_search = false, query_mentions_response_code = false, hints_json = "[\"No data view found over the lab index. Create one in Stack Management > Data Views (or Kibana > Data Views) pointing at eap-analyst-lab-demo* with @timestamp as the time field.\"]"
+              ROW passed = false, has_index_pattern = false, has_saved_search = false, saved_object_type = "none", query_mentions_response_code = false, hints_json = "[\"No data view found over the lab index. Create one in Stack Management > Data Views (or Kibana > Data Views) pointing at eap-analyst-lab-demo* with @timestamp as the time field.\"]"
