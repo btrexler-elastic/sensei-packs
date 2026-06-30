@@ -1,0 +1,9 @@
+{
+  "id": "eap-setup-analyst-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eap-setup-analyst-lab"
+  },
+  "description": "Create the Elastic Analyst Prep lab index: web-traffic data with planted errors and a byte-volume anomaly, shared across Searching, Visualizing, and Analyzing skills.",
+  "tags": ["elastic-analyst-prep"]
+}

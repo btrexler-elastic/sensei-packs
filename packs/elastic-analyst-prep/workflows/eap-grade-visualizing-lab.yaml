@@ -1,0 +1,181 @@
+name: eap-grade-visualizing-lab
+enabled: true
+description: >-
+  Grade Visualizing Data exercises. Mode-driven: checks for a saved visualization/lens
+  object with a given title (chart mode), a TSVB object (tsvb mode), or a dashboard
+  containing a minimum number of panels (dashboard mode) — by inspecting .kibana*
+  saved objects directly.
+tags: ["elastic-analyst-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: mode
+    type: string
+    required: true
+  - name: title
+    type: string
+    required: true
+  - name: min_panels
+    type: string
+    required: false
+
+steps:
+  - name: route_mode
+    type: if
+    condition: "${{ inputs.mode == 'chart' }}"
+    steps:
+      - name: find_lens
+        type: elasticsearch.request
+        on-failure:
+          continue: true
+        with:
+          method: POST
+          path: "/.kibana*/_search"
+          body:
+            size: 1
+            query:
+              bool:
+                filter:
+                  - terms:
+                      type: ["lens", "visualization"]
+                  - bool:
+                      should:
+                        - term:
+                            lens.title.keyword: "{{ inputs.title }}"
+                        - term:
+                            visualization.title.keyword: "{{ inputs.title }}"
+                      minimum_should_match: 1
+
+      - name: gate_chart
+        type: if
+        condition: "${{ steps.find_lens.output.hits.total.value >= 1 }}"
+        steps:
+          - name: finalize_chart_pass
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = true, mode = "chart", found_title = "{{ inputs.title }}", hints_json = "[]"
+        else:
+          - name: finalize_chart_fail
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "chart", found_title = "", hints_json = "[\"No Lens or classic visualization found with that exact title. Titles are case-sensitive in this check — confirm spelling and that you saved it.\"]"
+    else:
+      - name: route_tsvb
+        type: if
+        condition: "${{ inputs.mode == 'tsvb' }}"
+        steps:
+          - name: find_tsvb
+            type: elasticsearch.request
+            on-failure:
+              continue: true
+            with:
+              method: POST
+              path: "/.kibana*/_search"
+              body:
+                size: 1
+                query:
+                  bool:
+                    filter:
+                      - term:
+                          type: "visualization"
+                      - term:
+                          visualization.title.keyword: "{{ inputs.title }}"
+                      - wildcard:
+                          visualization.visState: "*\"type\":\"metrics\"*"
+
+          - name: gate_tsvb
+            type: if
+            condition: "${{ steps.find_tsvb.output.hits.total.value >= 1 }}"
+            steps:
+              - name: finalize_tsvb_pass
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = true, mode = "tsvb", found_title = "{{ inputs.title }}", hints_json = "[]"
+            else:
+              - name: finalize_tsvb_fail
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "tsvb", found_title = "", hints_json = "[\"No TSVB visualization found with that title. TSVB panels are saved as type 'visualization' with visState.type == 'metrics' — confirm you used Visualize Library > TSVB, not Lens.\"]"
+        else:
+          - name: route_dashboard
+            type: if
+            condition: "${{ inputs.mode == 'dashboard' }}"
+            steps:
+              - name: find_dashboard
+                type: elasticsearch.request
+                on-failure:
+                  continue: true
+                with:
+                  method: POST
+                  path: "/.kibana*/_search"
+                  body:
+                    size: 1
+                    query:
+                      bool:
+                        filter:
+                          - term:
+                              type: "dashboard"
+                          - term:
+                              dashboard.title.keyword: "{{ inputs.title }}"
+
+              - name: gate_dashboard_exists
+                type: if
+                condition: "${{ steps.find_dashboard.output.hits.total.value >= 1 }}"
+                steps:
+                  - name: gate_panel_count
+                    type: if
+                    condition: "${{ steps.find_dashboard.output.hits.hits[0]._source.references.size >= (inputs.min_panels | default: 2) }}"
+                    steps:
+                      - name: finalize_dashboard_pass
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = true, mode = "dashboard", found_title = "{{ inputs.title }}", panel_count = {{ steps.find_dashboard.output.hits.hits[0]._source.references.size }}, hints_json = "[]"
+                    else:
+                      - name: finalize_dashboard_too_few
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = false, mode = "dashboard", found_title = "{{ inputs.title }}", panel_count = {{ steps.find_dashboard.output.hits.hits[0]._source.references.size }}, hints_json = "[\"Dashboard exists but has fewer panels than required. Add more saved visualizations/Lens panels to it.\"]"
+                else:
+                  - name: finalize_dashboard_missing
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "dashboard", found_title = "", panel_count = 0, hints_json = "[\"No dashboard found with that title. Create one from the Dashboards app and Save it with the exact title.\"]"
+            else:
+              - name: finalize_invalid_mode
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "invalid", found_title = "", hints_json = "[\"mode must be chart, tsvb, or dashboard.\"]"

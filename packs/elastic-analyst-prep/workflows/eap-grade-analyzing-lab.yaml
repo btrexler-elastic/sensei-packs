@@ -1,0 +1,121 @@
+name: eap-grade-analyzing-lab
+enabled: true
+description: >-
+  Grade Analyzing Data exercises. ml_job mode checks .ml-config for an anomaly
+  detection job over the lab index. scripted_field mode checks the index-pattern
+  saved object for a scripted field definition.
+tags: ["elastic-analyst-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: mode
+    type: string
+    required: true
+  - name: job_id
+    type: string
+    required: false
+  - name: field_name
+    type: string
+    required: false
+
+steps:
+  - name: route_mode
+    type: if
+    condition: "${{ inputs.mode == 'ml_job' }}"
+    steps:
+      - name: find_ml_job
+        type: elasticsearch.request
+        on-failure:
+          continue: true
+        with:
+          method: POST
+          path: "/.ml-config/_search"
+          body:
+            size: 1
+            query:
+              bool:
+                filter:
+                  - term:
+                      job_type: "anomaly_detector"
+                  - wildcard:
+                      job_id: "{{ inputs.job_id | default: '*' }}"
+                  - wildcard:
+                      datafeed_config.indices: "eap-analyst-lab*"
+
+      - name: gate_ml_job
+        type: if
+        condition: "${{ steps.find_ml_job.output.hits.total.value >= 1 }}"
+        steps:
+          - name: finalize_ml_pass
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = true, mode = "ml_job", job_id = "{{ steps.find_ml_job.output.hits.hits[0]._source.job_id }}", detector_function = "{{ steps.find_ml_job.output.hits.hits[0]._source.analysis_config.detectors[0].function }}", hints_json = "[]"
+        else:
+          - name: finalize_ml_fail
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "ml_job", job_id = "", detector_function = "", hints_json = "[\"No anomaly detection job found over the lab index. Create one from Machine Learning > Anomaly Detection Jobs, using the eap-analyst-lab-demo data view and the full time range, and Start it.\"]"
+    else:
+      - name: route_scripted_field
+        type: if
+        condition: "${{ inputs.mode == 'scripted_field' }}"
+        steps:
+          - name: find_index_pattern_for_field
+            type: elasticsearch.request
+            on-failure:
+              continue: true
+            with:
+              method: POST
+              path: "/.kibana*/_search"
+              body:
+                size: 1
+                query:
+                  bool:
+                    filter:
+                      - term:
+                          type: "index-pattern"
+                      - wildcard:
+                          index-pattern.title: "eap-analyst-lab*"
+                      - wildcard:
+                          index-pattern.fields: "*\"{{ inputs.field_name | default: 'bytes_kb' }}\"*\"scripted\":true*"
+
+          - name: gate_scripted_field
+            type: if
+            condition: "${{ steps.find_index_pattern_for_field.output.hits.total.value >= 1 }}"
+            steps:
+              - name: finalize_scripted_pass
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = true, mode = "scripted_field", field_name = "{{ inputs.field_name | default: 'bytes_kb' }}", hints_json = "[]"
+            else:
+              - name: finalize_scripted_fail
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "scripted_field", field_name = "", hints_json = "[\"Scripted field not found on the lab data view. Add it in Stack Management > Data Views > [your view] > Scripted Fields, using a Painless script against the bytes field.\"]"
+        else:
+          - name: finalize_invalid_mode
+            type: elasticsearch.request
+            with:
+              method: POST
+              path: "/_query"
+              body:
+                query: |-
+                  ROW passed = false, mode = "invalid", hints_json = "[\"mode must be ml_job or scripted_field.\"]"

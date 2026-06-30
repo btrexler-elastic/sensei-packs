@@ -1,0 +1,171 @@
+name: eap-setup-analyst-lab
+enabled: true
+description: >-
+  Create the Elastic Analyst Prep lab index — a small web-traffic dataset with errors,
+  per-host volume differences, and a planted byte-volume anomaly — used across the
+  Searching, Visualizing, and Analyzing skills. Does NOT create the Kibana data view;
+  that is the learner's task for the Searching Data objectives.
+tags: ["elastic-analyst-prep"]
+
+triggers:
+  - type: manual
+
+inputs:
+  - name: index_suffix
+    type: string
+    required: false
+
+steps:
+  - name: delete_existing_index
+    type: elasticsearch.request
+    with:
+      method: DELETE
+      path: "/eap-analyst-lab-{{ inputs.index_suffix | default: 'demo' }}"
+    on-failure:
+      continue: true
+
+  - name: create_index
+    type: elasticsearch.request
+    with:
+      method: PUT
+      path: "/eap-analyst-lab-{{ inputs.index_suffix | default: 'demo' }}"
+      body:
+        mappings:
+          dynamic: strict
+          properties:
+            "@timestamp":
+              type: date
+            host:
+              properties:
+                name:
+                  type: keyword
+            region:
+              type: keyword
+            url:
+              properties:
+                path:
+                  type: keyword
+            response_code:
+              type: keyword
+            response_time_ms:
+              type: integer
+            bytes:
+              type: long
+            tags:
+              type: keyword
+
+  # One ES|QL round-trip gives us all 10 timestamps (t0=oldest, t9=newest), 3 min apart.
+  - name: get_timestamps
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/_query"
+      body:
+        query: "ROW t0=NOW() - 27 minutes, t1=NOW() - 24 minutes, t2=NOW() - 21 minutes, t3=NOW() - 18 minutes, t4=NOW() - 15 minutes, t5=NOW() - 12 minutes, t6=NOW() - 9 minutes, t7=NOW() - 6 minutes, t8=NOW() - 3 minutes, t9=NOW()"
+
+  # 10 time slices x 3 hosts = 30 docs.
+  # web-1 = us-east, web-2 = us-west, web-3 = eu-west.
+  # web-2 throws a 500 at t7 and a 404 at t8 (for KQL/error-search exercises).
+  # web-1 bytes spike from ~2200 baseline to 48000 at t9 (planted anomaly for the ML job).
+  - name: seed_data
+    type: elasticsearch.request
+    with:
+      method: POST
+      path: "/eap-analyst-lab-{{ inputs.index_suffix | default: 'demo' }}/_bulk?refresh=true"
+      headers:
+        Content-Type: application/x-ndjson
+      body: |
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":120,"bytes":2100,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":80,"bytes":1500,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":95,"bytes":1800,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 1, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":125,"bytes":2150,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 1, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":82,"bytes":1520,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 1, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":98,"bytes":1820,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 2, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":118,"bytes":2080,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 2, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":79,"bytes":1490,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 2, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":97,"bytes":1790,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 3, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":130,"bytes":2200,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 3, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":85,"bytes":1550,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 3, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":99,"bytes":1830,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 4, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":121,"bytes":2120,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 4, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":81,"bytes":1510,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 4, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":96,"bytes":1810,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 5, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":119,"bytes":2090,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 5, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":83,"bytes":1530,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 5, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":94,"bytes":1780,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 6, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":124,"bytes":2160,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 6, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":80,"bytes":1500,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 6, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":95,"bytes":1800,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 7, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":122,"bytes":2110,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 7, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"500","response_time_ms":2400,"bytes":300,"tags":["home","error"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 7, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":97,"bytes":1820,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 8, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":117,"bytes":2070,"tags":["checkout"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 8, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/missing"},"response_code":"404","response_time_ms":45,"bytes":210,"tags":["error"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 8, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":98,"bytes":1840,"tags":["search"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}","host":{"name":"web-1"},"region":"us-east","url":{"path":"/checkout"},"response_code":"200","response_time_ms":410,"bytes":48000,"tags":["checkout","spike"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}","host":{"name":"web-2"},"region":"us-west","url":{"path":"/home"},"response_code":"200","response_time_ms":84,"bytes":1540,"tags":["home"]}
+        {"create":{}}
+        {"@timestamp":"{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}","host":{"name":"web-3"},"region":"eu-west","url":{"path":"/search"},"response_code":"200","response_time_ms":96,"bytes":1810,"tags":["search"]}
+
+  - name: verify_count
+    type: elasticsearch.request
+    with:
+      method: GET
+      path: "/eap-analyst-lab-{{ inputs.index_suffix | default: 'demo' }}/_count"
+
+  - name: gate_results
+    type: if
+    condition: "${{ steps.verify_count.output.count >= 28 }}"
+    steps:
+      - name: finalize_summary
+        type: elasticsearch.request
+        with:
+          method: POST
+          path: "/_query"
+          body:
+            query: |-
+              ROW index_name = "eap-analyst-lab-{{ inputs.index_suffix | default: 'demo' }}", doc_count = {{ steps.verify_count.output.count }}, time_window_iso_start = "{{ steps.get_timestamps.output.values | first | first }}", time_window_iso_end = "{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}", anomaly_host = "web-1", anomaly_timestamp = "{{ steps.get_timestamps.output.values | first | slice: 9, 1 | first }}", error_host = "web-2"
+    else:
+      - name: abort_low_doc_count
+        type: elasticsearch.request
+        with:
+          method: GET
+          path: "/__sensei_analyst_lab_setup_failed__/low-doc-count"
+
+output:
+  index_name: "{{ steps.finalize_summary.output.values | first | first }}"
+  doc_count: "{{ steps.finalize_summary.output.values | first | slice: 1, 1 | first }}"
+  time_window_iso_start: "{{ steps.finalize_summary.output.values | first | slice: 2, 1 | first }}"
+  time_window_iso_end: "{{ steps.finalize_summary.output.values | first | slice: 3, 1 | first }}"
+  anomaly_host: "{{ steps.finalize_summary.output.values | first | slice: 4, 1 | first }}"
+  anomaly_timestamp: "{{ steps.finalize_summary.output.values | first | slice: 5, 1 | first }}"
+  error_host: "{{ steps.finalize_summary.output.values | first | slice: 6, 1 | first }}"

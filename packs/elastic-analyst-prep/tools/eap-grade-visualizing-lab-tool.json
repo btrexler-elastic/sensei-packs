@@ -1,0 +1,9 @@
+{
+  "id": "eap-grade-visualizing-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eap-grade-visualizing-lab"
+  },
+  "description": "Grade Visualizing Data exercises: checks .kibana* for a chart (Lens/classic), TSVB panel, or dashboard with the requested title, returning pass/fail with hints.",
+  "tags": ["elastic-analyst-prep"]
+}

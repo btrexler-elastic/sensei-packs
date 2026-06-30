@@ -1,0 +1,9 @@
+{
+  "id": "eap-grade-analyzing-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eap-grade-analyzing-lab"
+  },
+  "description": "Grade Analyzing Data exercises: checks .ml-config for an anomaly detection job, or the lab data view for a scripted field, returning pass/fail with hints.",
+  "tags": ["elastic-analyst-prep"]
+}

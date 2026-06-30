@@ -1,0 +1,9 @@
+{
+  "id": "eap-grade-discover-lab-tool",
+  "type": "workflow",
+  "configuration": {
+    "workflow_id": "eap-grade-discover-lab"
+  },
+  "description": "Grade Searching Data exercises: checks .kibana* for the lab data view and a saved search, returning pass/fail with hints.",
+  "tags": ["elastic-analyst-prep"]
+}

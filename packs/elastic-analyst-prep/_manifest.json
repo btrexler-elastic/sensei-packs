@@ -1,0 +1,25 @@
+{
+  "workflows": [
+    "workflows/eap-setup-analyst-lab.yaml",
+    "workflows/eap-grade-discover-lab.yaml",
+    "workflows/eap-grade-visualizing-lab.yaml",
+    "workflows/eap-grade-analyzing-lab.yaml"
+  ],
+  "tools": [
+    "tools/eap-setup-analyst-lab-tool.json",
+    "tools/eap-grade-discover-lab-tool.json",
+    "tools/eap-grade-visualizing-lab-tool.json",
+    "tools/eap-grade-analyzing-lab-tool.json"
+  ],
+  "tool_ids": [
+    "eap-setup-analyst-lab-tool",
+    "eap-grade-discover-lab-tool",
+    "eap-grade-visualizing-lab-tool",
+    "eap-grade-analyzing-lab-tool"
+  ],
+  "skills": [
+    "skills/searching-data/SKILL.md",
+    "skills/visualizing-data/SKILL.md",
+    "skills/analyzing-data/SKILL.md"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "elastic-analyst-prep-plugin",
+  "description": "Prep for the Elastic Certified Analyst exam — Discover/KQL, Kibana visualizations and dashboards, and data analysis with ML.",
+  "version": "0.1.0",
+  "author": { "name": "Elastic FE", "url": "https://github.com/elastic/sensei" },
+  "homepage": "https://github.com/elastic/sensei",
+  "repository": "https://github.com/elastic/sensei",
+  "license": "MIT"
+}
