@@ -8,6 +8,13 @@
       "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/elastic-engineer-prep"
     },
     {
+      "id": "elastic-analyst-prep",
+      "title": "Elastic Analyst Prep",
+      "description": "Practice drills for the Elastic Certified Analyst exam — Discover/KQL searches, Kibana visualizations and dashboards, and data analysis with Machine Learning.",
+      "status": "available",
+      "url": "https://github.com/btrexler-elastic/sensei-packs/tree/main/packs/elastic-analyst-prep"
+    },
+    {
       "id": "release-9-4-enablement",
       "title": "What's new in Elastic 9.4",
       "description": "PromQL in ES|QL, METRICS_INFO, TS_INFO. Hands-on drills with seeded TSDS.",
@@ -42,5 +49,6 @@
       "status": "coming-soon",
       "url": "https://github.com/m-adams/sensei-packs/tree/main/packs/security-essentials"
     }
+    
   ]
 }
