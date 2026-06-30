@@ -1,13 +1,12 @@
 name: eap-grade-discover-lab
 enabled: true
 description: >-
-  Grade Searching Data exercises by inspecting Kibana saved objects directly in the
-  .kibana* index. Mode-driven: "canonical" verifies the saved search references
-  response_code (Lab Errors exercise); "challenge" verifies it references url.path
-  (EU Search Traffic exercise). Supports both the classic "search" and newer
-  "discover-session" saved object types. Title fields on Kibana saved objects are
-  plain analyzed text with no .keyword sub-field — all title lookups use match with
-  operator: and accordingly.
+  Grade Searching Data exercises. Mode canonical checks the saved search references
+  response_code (Lab Errors exercise). Mode challenge checks it references url.path
+  (EU Search Traffic exercise). Each mode branch is fully self-contained — no shared
+  state across if/else branches. Supports both search and discover-session saved
+  object types. Title fields are plain analyzed text, so all lookups use match with
+  operator: and.
 tags: ["elastic-analyst-prep"]
 
 triggers:
@@ -45,135 +44,207 @@ steps:
                     query: "{{ inputs.index_pattern_title | default: 'eap-analyst-lab-demo' }}"
                     operator: "and"
 
-  # Match either the classic "search" saved object or the newer "discover-session"
-  # type introduced in later Kibana versions. Title fields are plain analyzed text —
-  # use match with operator: and rather than term against a nonexistent .keyword field.
-  - name: find_saved_search
-    type: elasticsearch.request
-    on-failure:
-      continue: true
-    with:
-      method: POST
-      path: "/.kibana*/_search"
-      body:
-        size: 1
-        query:
-          bool:
-            filter:
-              - terms:
-                  type: ["search", "discover-session"]
-            should:
-              - match:
-                  search.title:
-                    query: "{{ inputs.saved_search_title }}"
-                    operator: "and"
-              - match:
-                  discover-session.title:
-                    query: "{{ inputs.saved_search_title }}"
-                    operator: "and"
-            minimum_should_match: 1
-
   - name: gate_index_pattern
     type: if
     condition: "${{ steps.find_index_pattern.output.hits.total.value >= 1 }}"
     steps:
-      - name: gate_saved_search
+      - name: route_mode
         type: if
-        condition: "${{ steps.find_saved_search.output.hits.total.value >= 1 }}"
+        condition: "${{ inputs.mode == 'canonical' }}"
         steps:
-          # Pull the searchSourceJSON content from whichever saved object type matched.
-          - name: route_by_object_type
-            type: if
-            condition: "${{ steps.find_saved_search.output.hits.hits[0]._source.type == 'discover-session' }}"
-            steps:
-              - name: set_content_session
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW search_source_json = "{{ steps.find_saved_search.output.hits.hits[0]._source['discover-session'].kibanaSavedObjectMeta.searchSourceJSON }}", saved_object_type = "discover-session"
-            else:
-              - name: set_content_classic
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW search_source_json = "{{ steps.find_saved_search.output.hits.hits[0]._source.search.kibanaSavedObjectMeta.searchSourceJSON }}", saved_object_type = "search"
 
-          # Route on mode to apply the right content check.
-          - name: route_mode
-            type: if
-            condition: "${{ inputs.mode == 'canonical' }}"
-            steps:
-              - name: check_canonical_content
-                type: if
-                condition: "${{ steps.route_by_object_type.output.search_source_json contains 'response_code' }}"
-                steps:
-                  - name: finalize_canonical_pass
-                    type: elasticsearch.request
-                    with:
-                      method: POST
-                      path: "/_query"
-                      body:
-                        query: |-
-                          ROW passed = true, mode = "canonical", has_index_pattern = true, has_saved_search = true, saved_object_type = "{{ steps.route_by_object_type.output.saved_object_type }}", content_check = true, hints_json = "[]"
-                else:
-                  - name: finalize_canonical_no_response_code
-                    type: elasticsearch.request
-                    with:
-                      method: POST
-                      path: "/_query"
-                      body:
-                        query: |-
-                          ROW passed = false, mode = "canonical", has_index_pattern = true, has_saved_search = true, saved_object_type = "{{ steps.route_by_object_type.output.saved_object_type }}", content_check = false, hints_json = "[\"Saved search found, but its stored query or filter doesn't reference response_code. Make sure your KQL or pinned filter targets the response_code field.\"]"
-            else:
-              - name: route_challenge
-                type: if
-                condition: "${{ inputs.mode == 'challenge' }}"
-                steps:
-                  - name: check_challenge_content
-                    type: if
-                    condition: "${{ steps.route_by_object_type.output.search_source_json contains 'url.path' }}"
-                    steps:
-                      - name: finalize_challenge_pass
-                        type: elasticsearch.request
-                        with:
-                          method: POST
-                          path: "/_query"
-                          body:
-                            query: |-
-                              ROW passed = true, mode = "challenge", has_index_pattern = true, has_saved_search = true, saved_object_type = "{{ steps.route_by_object_type.output.saved_object_type }}", content_check = true, hints_json = "[]"
-                    else:
-                      - name: finalize_challenge_no_url_path
-                        type: elasticsearch.request
-                        with:
-                          method: POST
-                          path: "/_query"
-                          body:
-                            query: |-
-                              ROW passed = false, mode = "challenge", has_index_pattern = true, has_saved_search = true, saved_object_type = "{{ steps.route_by_object_type.output.saved_object_type }}", content_check = false, hints_json = "[\"Saved search found, but its stored query doesn't reference url.path. Make sure your KQL condition targets url.path: \\\"/search\\\".\"]"
-                else:
-                  - name: finalize_invalid_mode
-                    type: elasticsearch.request
-                    with:
-                      method: POST
-                      path: "/_query"
-                      body:
-                        query: |-
-                          ROW passed = false, mode = "invalid", has_index_pattern = true, has_saved_search = true, saved_object_type = "", content_check = false, hints_json = "[\"mode must be canonical or challenge.\"]"
-        else:
-          - name: finalize_no_saved_search
+          # --- CANONICAL: find saved search, check for response_code ---
+
+          - name: find_saved_search_canonical
             type: elasticsearch.request
+            on-failure:
+              continue: true
             with:
               method: POST
-              path: "/_query"
+              path: "/.kibana*/_search"
               body:
-                query: |-
-                  ROW passed = false, mode = "{{ inputs.mode }}", has_index_pattern = true, has_saved_search = false, saved_object_type = "none", content_check = false, hints_json = "[\"No saved search or Discover session found with that title. In Discover, run your query/filter then use Save in the toolbar.\"]"
+                size: 1
+                query:
+                  bool:
+                    filter:
+                      - terms:
+                          type: ["search", "discover-session"]
+                    should:
+                      - match:
+                          search.title:
+                            query: "{{ inputs.saved_search_title }}"
+                            operator: "and"
+                      - match:
+                          discover-session.title:
+                            query: "{{ inputs.saved_search_title }}"
+                            operator: "and"
+                    minimum_should_match: 1
+
+          - name: gate_canonical_found
+            type: if
+            condition: "${{ steps.find_saved_search_canonical.output.hits.total.value >= 1 }}"
+            steps:
+              - name: canonical_route_object_type
+                type: if
+                condition: "${{ steps.find_saved_search_canonical.output.hits.hits[0]._source.type == 'discover-session' }}"
+                steps:
+                  - name: canonical_check_session
+                    type: if
+                    condition: "${{ steps.find_saved_search_canonical.output.hits.hits[0]._source['discover-session'].kibanaSavedObjectMeta.searchSourceJSON contains 'response_code' }}"
+                    steps:
+                      - name: canonical_pass_session
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = true, mode = "canonical", has_index_pattern = true, has_saved_search = true, content_check = true, hints_json = "[]"
+                    else:
+                      - name: canonical_fail_session
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = false, mode = "canonical", has_index_pattern = true, has_saved_search = true, content_check = false, hints_json = "[\"Discover session found, but its query does not reference response_code. Make sure your KQL targets response_code: \\\"500\\\" or response_code: \\\"404\\\".\"]"
+                else:
+                  - name: canonical_check_classic
+                    type: if
+                    condition: "${{ steps.find_saved_search_canonical.output.hits.hits[0]._source.search.kibanaSavedObjectMeta.searchSourceJSON contains 'response_code' }}"
+                    steps:
+                      - name: canonical_pass_classic
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = true, mode = "canonical", has_index_pattern = true, has_saved_search = true, content_check = true, hints_json = "[]"
+                    else:
+                      - name: canonical_fail_classic
+                        type: elasticsearch.request
+                        with:
+                          method: POST
+                          path: "/_query"
+                          body:
+                            query: |-
+                              ROW passed = false, mode = "canonical", has_index_pattern = true, has_saved_search = true, content_check = false, hints_json = "[\"Saved search found, but its query does not reference response_code. Make sure your KQL targets response_code: \\\"500\\\" or response_code: \\\"404\\\".\"]"
+            else:
+              - name: canonical_no_saved_search
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "canonical", has_index_pattern = true, has_saved_search = false, content_check = false, hints_json = "[\"No saved search found with that title. In Discover, run your query then use Save in the toolbar.\"]"
+
+        else:
+          - name: route_challenge
+            type: if
+            condition: "${{ inputs.mode == 'challenge' }}"
+            steps:
+
+              # --- CHALLENGE: find saved search, check for url.path only ---
+
+              - name: find_saved_search_challenge
+                type: elasticsearch.request
+                on-failure:
+                  continue: true
+                with:
+                  method: POST
+                  path: "/.kibana*/_search"
+                  body:
+                    size: 1
+                    query:
+                      bool:
+                        filter:
+                          - terms:
+                              type: ["search", "discover-session"]
+                        should:
+                          - match:
+                              search.title:
+                                query: "{{ inputs.saved_search_title }}"
+                                operator: "and"
+                          - match:
+                              discover-session.title:
+                                query: "{{ inputs.saved_search_title }}"
+                                operator: "and"
+                        minimum_should_match: 1
+
+              - name: gate_challenge_found
+                type: if
+                condition: "${{ steps.find_saved_search_challenge.output.hits.total.value >= 1 }}"
+                steps:
+                  - name: challenge_route_object_type
+                    type: if
+                    condition: "${{ steps.find_saved_search_challenge.output.hits.hits[0]._source.type == 'discover-session' }}"
+                    steps:
+                      - name: challenge_check_session
+                        type: if
+                        condition: "${{ steps.find_saved_search_challenge.output.hits.hits[0]._source['discover-session'].kibanaSavedObjectMeta.searchSourceJSON contains 'url.path' }}"
+                        steps:
+                          - name: challenge_pass_session
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = true, mode = "challenge", has_index_pattern = true, has_saved_search = true, content_check = true, hints_json = "[]"
+                        else:
+                          - name: challenge_fail_session
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = false, mode = "challenge", has_index_pattern = true, has_saved_search = true, content_check = false, hints_json = "[\"Discover session found, but its query does not reference url.path. Make sure your KQL condition is url.path: \\\"/search\\\".\"]"
+                    else:
+                      - name: challenge_check_classic
+                        type: if
+                        condition: "${{ steps.find_saved_search_challenge.output.hits.hits[0]._source.search.kibanaSavedObjectMeta.searchSourceJSON contains 'url.path' }}"
+                        steps:
+                          - name: challenge_pass_classic
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = true, mode = "challenge", has_index_pattern = true, has_saved_search = true, content_check = true, hints_json = "[]"
+                        else:
+                          - name: challenge_fail_classic
+                            type: elasticsearch.request
+                            with:
+                              method: POST
+                              path: "/_query"
+                              body:
+                                query: |-
+                                  ROW passed = false, mode = "challenge", has_index_pattern = true, has_saved_search = true, content_check = false, hints_json = "[\"Saved search found, but its query does not reference url.path. Make sure your KQL condition is url.path: \\\"/search\\\".\"]"
+                else:
+                  - name: challenge_no_saved_search
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "challenge", has_index_pattern = true, has_saved_search = false, content_check = false, hints_json = "[\"No saved search found with that title. In Discover, run your query then use Save in the toolbar.\"]"
+
+            else:
+              - name: finalize_invalid_mode
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW passed = false, mode = "invalid", has_index_pattern = true, has_saved_search = false, content_check = false, hints_json = "[\"mode must be canonical or challenge.\"]"
+
     else:
       - name: finalize_no_index_pattern
         type: elasticsearch.request
@@ -182,4 +253,4 @@ steps:
           path: "/_query"
           body:
             query: |-
-              ROW passed = false, mode = "{{ inputs.mode }}", has_index_pattern = false, has_saved_search = false, saved_object_type = "none", content_check = false, hints_json = "[\"No data view found over the lab index. Create one in Stack Management > Data Views pointing at eap-analyst-lab-demo* with @timestamp as the time field.\"]"
+              ROW passed = false, mode = "{{ inputs.mode }}", has_index_pattern = false, has_saved_search = false, content_check = false, hints_json = "[\"No data view found over the lab index. Create one in Stack Management > Data Views pointing at eap-analyst-lab-demo* with @timestamp as the time field.\"]"
