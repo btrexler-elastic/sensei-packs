@@ -55,9 +55,9 @@ After the tool returns, tell the learner:
 >
 > Tell me once you've saved it.
 
-When they confirm, call **`eap-grade-discover-lab-tool`** with `saved_search_title: "Lab Errors"`.
+When they confirm, call **`eap-grade-discover-lab-tool`** with `mode: "canonical"`, `saved_search_title: "Lab Errors"`.
 
-- `passed: true`: confirm — "Found it. Two error docs in this dataset: a `500` from `web-2` and a `404` from `web-2` a few minutes later — same host, different failure modes. Your KQL likely read `response_code: "500" or response_code: "404"`, or you built it as two `+ Add filter` pills OR'd together. Either is valid; the search bar is generally faster for simple disjunctions." The result also includes `saved_object_type` (`"search"` or `"discover-session"`) — newer Kibana versions save Discover state as a `discover-session` object instead of the classic `search` type; the grading tool checks both, so either is fine and there's no need to mention this to the learner unless they ask.
+- `passed: true`: confirm — "Found it. Two error docs in this dataset: a `500` from `web-2` and a `404` from `web-2` a few minutes later — same host, different failure modes. Your KQL likely read `response_code: "500" or response_code: "404"`, or you built it as two `+ Add filter` pills OR'd together. Either is valid; the search bar is generally faster for simple disjunctions."
 - `passed: false`: report the hint from `hints_json`. Most common cause is the data view not being created yet, or the saved search title not matching exactly (it's case-sensitive in this check).
 
 ---
@@ -74,10 +74,10 @@ There's no separate grading tool call for the pinned-filter requirement (saved o
 - A separate filter pill for `region: eu-west` should exist and be pinned (pin icon engaged, shown with a small pin glyph on the pill).
 - Ask them to paste a screenshot description or confirm pin state if unclear — don't assume.
 
-Then call **`eap-grade-discover-lab-tool`** with `saved_search_title: "EU Search Traffic"`. Note: this grading call's `query_mentions_response_code` check is built for the canonical exercise — for this challenge, only treat `passed: false` due to `has_saved_search: false` or `has_index_pattern: false` as blocking; a `false` on the content check here is expected and not a problem, since the challenge query targets `url.path`, not `response_code`. Tell the learner this explicitly so they're not confused by an unrelated hint.
+Then call **`eap-grade-discover-lab-tool`** with `mode: "challenge"`, `saved_search_title: "EU Search Traffic"`. This checks that the saved search exists and that its stored query references `url.path`.
 
-- If the saved search exists: "Saved search confirmed. Three hits expected — all the `web-3`/`eu-west` `/search` requests. The key habit: free-text query for what varies in your investigation, filter pills (pinned if they should survive navigation) for the fixed context you're investigating within."
-- If missing: ask them to re-save with the exact title.
+- If the saved search exists and references `url.path`: "Saved search confirmed. Three hits expected — all the `web-3`/`eu-west` `/search` requests. The key habit: free-text query for what varies in your investigation, filter pills (pinned if they should survive navigation) for the fixed context you're investigating within."
+- If missing or content check fails: report the hint from `hints_json` and ask them to re-save or correct the query.
 
 ---
 
