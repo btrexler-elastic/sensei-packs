@@ -70,6 +70,11 @@ steps:
         type: if
         condition: "${{ inputs.mode == 'scripted_field' }}"
         steps:
+          # index-pattern.title is plain analyzed text (no .keyword sub-field), so
+          # match with operator: and rather than a wildcard/.keyword term query.
+          # index-pattern.fields is mapped index: false — it is stored but cannot be
+          # queried via Elasticsearch DSL at all, so don't try; fetch the doc by
+          # title only, then inspect the fields content directly from _source.
           - name: find_index_pattern_for_field
             type: elasticsearch.request
             on-failure:
@@ -84,32 +89,46 @@ steps:
                     filter:
                       - term:
                           type: "index-pattern"
-                      - wildcard:
-                          index-pattern.title: "eap-analyst-lab*"
-                      - wildcard:
-                          index-pattern.fields: "*\"{{ inputs.field_name | default: 'bytes_kb' }}\"*\"scripted\":true*"
+                    must:
+                      - match:
+                          index-pattern.title:
+                            query: "eap-analyst-lab-demo"
+                            operator: "and"
 
-          - name: gate_scripted_field
+          - name: gate_index_pattern_found
             type: if
             condition: "${{ steps.find_index_pattern_for_field.output.hits.total.value >= 1 }}"
             steps:
-              - name: finalize_scripted_pass
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW passed = true, mode = "scripted_field", field_name = "{{ inputs.field_name | default: 'bytes_kb' }}", hints_json = "[]"
+              - name: check_scripted_field_present
+                type: if
+                condition: "${{ steps.find_index_pattern_for_field.output.hits.hits[0]._source['index-pattern'].fields contains (inputs.field_name | default: 'bytes_kb') }}"
+                steps:
+                  - name: finalize_scripted_pass
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, mode = "scripted_field", field_name = "{{ inputs.field_name | default: 'bytes_kb' }}", hints_json = "[]"
+                else:
+                  - name: finalize_scripted_field_not_present
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "scripted_field", field_name = "", hints_json = "[\"Data view found, but no scripted field with that name appears in its field list. Add it in Stack Management > Data Views > [your view] > Scripted Fields.\"]"
             else:
-              - name: finalize_scripted_fail
+              - name: finalize_scripted_no_index_pattern
                 type: elasticsearch.request
                 with:
                   method: POST
                   path: "/_query"
                   body:
                     query: |-
-                      ROW passed = false, mode = "scripted_field", field_name = "", hints_json = "[\"Scripted field not found on the lab data view. Add it in Stack Management > Data Views > [your view] > Scripted Fields, using a Painless script against the bytes field.\"]"
+                      ROW passed = false, mode = "scripted_field", field_name = "", hints_json = "[\"No data view found over the lab index — create one first (Stack Management > Data Views) before adding a scripted field.\"]"
         else:
           - name: finalize_invalid_mode
             type: elasticsearch.request

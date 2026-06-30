@@ -20,6 +20,10 @@ inputs:
     required: true
 
 steps:
+  # NOTE: index-pattern.title (and most Kibana saved-object title fields) are mapped
+  # as plain analyzed text with no .keyword sub-field — wildcard/term queries against
+  # a .keyword variant silently match nothing. Use match with operator: and instead,
+  # which tokenizes the query the same way the field was indexed.
   - name: find_index_pattern
     type: elasticsearch.request
     on-failure:
@@ -34,12 +38,16 @@ steps:
             filter:
               - term:
                   type: "index-pattern"
-              - wildcard:
-                  index-pattern.title: "{{ inputs.index_pattern_title | default: 'eap-analyst-lab*' }}"
+            must:
+              - match:
+                  index-pattern.title:
+                    query: "{{ inputs.index_pattern_title | default: 'eap-analyst-lab-demo' }}"
+                    operator: "and"
 
   # Match either the classic "search" saved object or the newer "discover-session"
-  # saved object introduced in later Kibana versions — title field path differs by
-  # type, so both are OR'd via should + minimum_should_match alongside the type filter.
+  # saved object introduced in later Kibana versions. Title fields on both types are
+  # plain analyzed text with no .keyword sub-field, so use match with operator: and
+  # rather than a term query against a .keyword variant that doesn't exist.
   - name: find_saved_search
     type: elasticsearch.request
     on-failure:
@@ -55,10 +63,14 @@ steps:
               - terms:
                   type: ["search", "discover-session"]
             should:
-              - term:
-                  search.title.keyword: "{{ inputs.saved_search_title }}"
-              - term:
-                  discover-session.title.keyword: "{{ inputs.saved_search_title }}"
+              - match:
+                  search.title:
+                    query: "{{ inputs.saved_search_title }}"
+                    operator: "and"
+              - match:
+                  discover-session.title:
+                    query: "{{ inputs.saved_search_title }}"
+                    operator: "and"
             minimum_should_match: 1
 
   - name: gate_index_pattern

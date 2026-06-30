@@ -4,7 +4,9 @@ description: >-
   Grade Visualizing Data exercises. Mode-driven: checks for a saved visualization/lens
   object with a given title (chart mode), a TSVB object (tsvb mode), or a dashboard
   containing a minimum number of panels (dashboard mode) — by inspecting .kibana*
-  saved objects directly.
+  saved objects directly. Title fields on Kibana saved objects are plain analyzed
+  text with no .keyword sub-field, so all title lookups here use match with
+  operator: and rather than a term query against a .keyword variant.
 tags: ["elastic-analyst-prep"]
 
 triggers:
@@ -40,13 +42,16 @@ steps:
                 filter:
                   - terms:
                       type: ["lens", "visualization"]
-                  - bool:
-                      should:
-                        - term:
-                            lens.title.keyword: "{{ inputs.title }}"
-                        - term:
-                            visualization.title.keyword: "{{ inputs.title }}"
-                      minimum_should_match: 1
+                should:
+                  - match:
+                      lens.title:
+                        query: "{{ inputs.title }}"
+                        operator: "and"
+                  - match:
+                      visualization.title:
+                        query: "{{ inputs.title }}"
+                        operator: "and"
+                minimum_should_match: 1
 
       - name: gate_chart
         type: if
@@ -68,13 +73,17 @@ steps:
               path: "/_query"
               body:
                 query: |-
-                  ROW passed = false, mode = "chart", found_title = "", hints_json = "[\"No Lens or classic visualization found with that exact title. Titles are case-sensitive in this check — confirm spelling and that you saved it.\"]"
+                  ROW passed = false, mode = "chart", found_title = "", hints_json = "[\"No Lens or classic visualization found with that title. Confirm spelling and that you saved it.\"]"
     else:
       - name: route_tsvb
         type: if
         condition: "${{ inputs.mode == 'tsvb' }}"
         steps:
-          - name: find_tsvb
+          # Match on title only here — visState is also plain analyzed text, so a
+          # wildcard/substring search against it from the query DSL won't reliably
+          # match. Fetch the candidate doc first, then inspect its visState content
+          # directly from _source in the next step.
+          - name: find_visualization_by_title
             type: elasticsearch.request
             on-failure:
               continue: true
@@ -88,23 +97,37 @@ steps:
                     filter:
                       - term:
                           type: "visualization"
-                      - term:
-                          visualization.title.keyword: "{{ inputs.title }}"
-                      - wildcard:
-                          visualization.visState: "*\"type\":\"metrics\"*"
+                    must:
+                      - match:
+                          visualization.title:
+                            query: "{{ inputs.title }}"
+                            operator: "and"
 
-          - name: gate_tsvb
+          - name: gate_tsvb_found
             type: if
-            condition: "${{ steps.find_tsvb.output.hits.total.value >= 1 }}"
+            condition: "${{ steps.find_visualization_by_title.output.hits.total.value >= 1 }}"
             steps:
-              - name: finalize_tsvb_pass
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW passed = true, mode = "tsvb", found_title = "{{ inputs.title }}", hints_json = "[]"
+              - name: check_is_tsvb
+                type: if
+                condition: "${{ steps.find_visualization_by_title.output.hits.hits[0]._source.visualization.visState contains '\"type\":\"metrics\"' }}"
+                steps:
+                  - name: finalize_tsvb_pass
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = true, mode = "tsvb", found_title = "{{ inputs.title }}", hints_json = "[]"
+                else:
+                  - name: finalize_tsvb_wrong_type
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: |-
+                          ROW passed = false, mode = "tsvb", found_title = "{{ inputs.title }}", hints_json = "[\"A visualization with that title exists, but it isn't a TSVB panel. TSVB panels store visState.type == 'metrics' — confirm you used Visualize Library > TSVB, not Lens.\"]"
             else:
               - name: finalize_tsvb_fail
                 type: elasticsearch.request
@@ -113,7 +136,7 @@ steps:
                   path: "/_query"
                   body:
                     query: |-
-                      ROW passed = false, mode = "tsvb", found_title = "", hints_json = "[\"No TSVB visualization found with that title. TSVB panels are saved as type 'visualization' with visState.type == 'metrics' — confirm you used Visualize Library > TSVB, not Lens.\"]"
+                      ROW passed = false, mode = "tsvb", found_title = "", hints_json = "[\"No visualization found with that title at all. Confirm spelling and that you saved it.\"]"
         else:
           - name: route_dashboard
             type: if
@@ -133,8 +156,11 @@ steps:
                         filter:
                           - term:
                               type: "dashboard"
-                          - term:
-                              dashboard.title.keyword: "{{ inputs.title }}"
+                        must:
+                          - match:
+                              dashboard.title:
+                                query: "{{ inputs.title }}"
+                                operator: "and"
 
               - name: gate_dashboard_exists
                 type: if
