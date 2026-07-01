@@ -1,12 +1,12 @@
 name: eap-grade-visualizing-lab
 enabled: true
 description: >-
-  Grade Visualizing Data exercises. Mode-driven: checks for a saved visualization/lens
-  object with a given title (chart mode), a TSVB object (tsvb mode), or a dashboard
-  containing a minimum number of panels (dashboard mode) — by inspecting .kibana*
-  saved objects directly. Title fields on Kibana saved objects are plain analyzed
-  text with no .keyword sub-field, so all title lookups here use match with
-  operator: and rather than a term query against a .keyword variant.
+  Grade Visualizing Data exercises. Mode chart checks for a Lens or classic
+  visualization by title. Mode tsvb checks for a TSVB (metrics visState) panel by
+  title. Mode dashboard checks for a dashboard by title and counts its panel
+  references via a separate ES|QL step to avoid .size array accessors. All title
+  lookups use match with operator: and since Kibana title fields are plain analyzed
+  text with no .keyword sub-field.
 tags: ["elastic-analyst-prep"]
 
 triggers:
@@ -28,6 +28,8 @@ steps:
     type: if
     condition: "${{ inputs.mode == 'chart' }}"
     steps:
+
+      # --- CHART ---
       - name: find_lens
         type: elasticsearch.request
         on-failure:
@@ -74,15 +76,17 @@ steps:
               body:
                 query: |-
                   ROW passed = false, mode = "chart", found_title = "", hints_json = "[\"No Lens or classic visualization found with that title. Confirm spelling and that you saved it.\"]"
+
     else:
       - name: route_tsvb
         type: if
         condition: "${{ inputs.mode == 'tsvb' }}"
         steps:
-          # Match on title only here — visState is also plain analyzed text, so a
-          # wildcard/substring search against it from the query DSL won't reliably
-          # match. Fetch the candidate doc first, then inspect its visState content
-          # directly from _source in the next step.
+
+          # --- TSVB ---
+          # Fetch the visualization doc by title first, then extract visState to a
+          # plain string via ES|QL ROW so the contains check operates on a simple
+          # variable — avoids embedded quotes inside ${{ }} condition expressions.
           - name: find_visualization_by_title
             type: elasticsearch.request
             on-failure:
@@ -107,9 +111,18 @@ steps:
             type: if
             condition: "${{ steps.find_visualization_by_title.output.hits.total.value >= 1 }}"
             steps:
+              - name: extract_vis_state
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: |-
+                      ROW vis_state = "{{ steps.find_visualization_by_title.output.hits.hits[0]._source.visualization.visState }}"
+
               - name: check_is_tsvb
                 type: if
-                condition: "${{ steps.find_visualization_by_title.output.hits.hits[0]._source.visualization.visState contains '\"type\":\"metrics\"' }}"
+                condition: "${{ steps.extract_vis_state.output.values[0][0] contains 'metrics' }}"
                 steps:
                   - name: finalize_tsvb_pass
                     type: elasticsearch.request
@@ -127,7 +140,7 @@ steps:
                       path: "/_query"
                       body:
                         query: |-
-                          ROW passed = false, mode = "tsvb", found_title = "{{ inputs.title }}", hints_json = "[\"A visualization with that title exists, but it isn't a TSVB panel. TSVB panels store visState.type == 'metrics' — confirm you used Visualize Library > TSVB, not Lens.\"]"
+                          ROW passed = false, mode = "tsvb", found_title = "{{ inputs.title }}", hints_json = "[\"A visualization with that title exists but is not a TSVB panel. Confirm you used Visualize Library > TSVB, not Lens.\"]"
             else:
               - name: finalize_tsvb_fail
                 type: elasticsearch.request
@@ -136,12 +149,18 @@ steps:
                   path: "/_query"
                   body:
                     query: |-
-                      ROW passed = false, mode = "tsvb", found_title = "", hints_json = "[\"No visualization found with that title at all. Confirm spelling and that you saved it.\"]"
+                      ROW passed = false, mode = "tsvb", found_title = "", hints_json = "[\"No visualization found with that title. Confirm spelling and that you saved it.\"]"
+
         else:
           - name: route_dashboard
             type: if
             condition: "${{ inputs.mode == 'dashboard' }}"
             steps:
+
+              # --- DASHBOARD ---
+              # Fetch the dashboard doc by title, then count its references with a
+              # separate ES|QL step — avoids .references.size array accessor syntax
+              # which this engine does not support in template expressions.
               - name: find_dashboard
                 type: elasticsearch.request
                 on-failure:
@@ -166,9 +185,42 @@ steps:
                 type: if
                 condition: "${{ steps.find_dashboard.output.hits.total.value >= 1 }}"
                 steps:
+                  # Count panel references using a nested terms agg on the references
+                  # array — avoids any array .size accessor in template expressions.
+                  - name: count_panels
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/.kibana*/_search"
+                      body:
+                        size: 0
+                        query:
+                          bool:
+                            filter:
+                              - term:
+                                  _id: "{{ steps.find_dashboard.output.hits.hits[0]._id }}"
+                        aggs:
+                          panel_refs:
+                            nested:
+                              path: "references"
+                            aggs:
+                              ref_count:
+                                value_count:
+                                  field: "references.id"
+
+                  # Resolve min_panels to a plain integer in its own step — avoids
+                  # (inputs.min_panels | default: 2) filter syntax inside a condition.
+                  - name: resolve_min_panels
+                    type: elasticsearch.request
+                    with:
+                      method: POST
+                      path: "/_query"
+                      body:
+                        query: "ROW min_panels = {{ inputs.min_panels | default: 2 }}"
+
                   - name: gate_panel_count
                     type: if
-                    condition: "${{ steps.find_dashboard.output.hits.hits[0]._source.references.size >= (inputs.min_panels | default: 2) }}"
+                    condition: "${{ steps.count_panels.output.aggregations.panel_refs.ref_count.value >= steps.resolve_min_panels.output.values[0][0] }}"
                     steps:
                       - name: finalize_dashboard_pass
                         type: elasticsearch.request
@@ -177,7 +229,7 @@ steps:
                           path: "/_query"
                           body:
                             query: |-
-                              ROW passed = true, mode = "dashboard", found_title = "{{ inputs.title }}", panel_count = {{ steps.find_dashboard.output.hits.hits[0]._source.references.size }}, hints_json = "[]"
+                              ROW passed = true, mode = "dashboard", found_title = "{{ inputs.title }}", panel_count = {{ steps.count_panels.output.aggregations.panel_refs.ref_count.value }}, hints_json = "[]"
                     else:
                       - name: finalize_dashboard_too_few
                         type: elasticsearch.request
@@ -186,7 +238,7 @@ steps:
                           path: "/_query"
                           body:
                             query: |-
-                              ROW passed = false, mode = "dashboard", found_title = "{{ inputs.title }}", panel_count = {{ steps.find_dashboard.output.hits.hits[0]._source.references.size }}, hints_json = "[\"Dashboard exists but has fewer panels than required. Add more saved visualizations/Lens panels to it.\"]"
+                              ROW passed = false, mode = "dashboard", found_title = "{{ inputs.title }}", panel_count = {{ steps.count_panels.output.aggregations.panel_refs.ref_count.value }}, hints_json = "[\"Dashboard exists but has fewer panels than required. Add the missing visualizations to it.\"]"
                 else:
                   - name: finalize_dashboard_missing
                     type: elasticsearch.request
@@ -195,7 +247,8 @@ steps:
                       path: "/_query"
                       body:
                         query: |-
-                          ROW passed = false, mode = "dashboard", found_title = "", panel_count = 0, hints_json = "[\"No dashboard found with that title. Create one from the Dashboards app and Save it with the exact title.\"]"
+                          ROW passed = false, mode = "dashboard", found_title = "", panel_count = 0, hints_json = "[\"No dashboard found with that title. Create one from the Dashboards app and save it with the exact title.\"]"
+
             else:
               - name: finalize_invalid_mode
                 type: elasticsearch.request
