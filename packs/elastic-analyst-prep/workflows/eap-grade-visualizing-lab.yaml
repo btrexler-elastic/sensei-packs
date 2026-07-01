@@ -111,18 +111,12 @@ steps:
             type: if
             condition: "${{ steps.find_visualization_by_title.output.hits.total.value >= 1 }}"
             steps:
-              - name: extract_vis_state
-                type: elasticsearch.request
-                with:
-                  method: POST
-                  path: "/_query"
-                  body:
-                    query: |-
-                      ROW vis_state = "{{ steps.find_visualization_by_title.output.hits.hits[0]._source.visualization.visState }}"
-
+              # Check visState directly from _source — don't try to interpolate it
+              # into an ES|QL ROW string, since visState is raw JSON with double quotes
+              # that would immediately close the ES|QL string literal.
               - name: check_is_tsvb
                 type: if
-                condition: "${{ steps.extract_vis_state.output.values[0][0] contains 'metrics' }}"
+                condition: "${{ steps.find_visualization_by_title.output.hits.hits[0]._source.visualization.visState contains 'metrics' }}"
                 steps:
                   - name: finalize_tsvb_pass
                     type: elasticsearch.request
