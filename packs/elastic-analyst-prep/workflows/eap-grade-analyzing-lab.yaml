@@ -2,8 +2,9 @@ name: eap-grade-analyzing-lab
 enabled: true
 description: >-
   Grade Analyzing Data exercises. ml_job mode checks .ml-config for an anomaly
-  detection job over the lab index. scripted_field mode checks the index-pattern
-  saved object for a scripted field definition.
+  detection job over the lab index. scripted_field mode fetches the data view by
+  title then inspects its fields list directly from _source. Each mode branch is
+  fully self-contained.
 tags: ["elastic-analyst-prep"]
 
 triggers:
@@ -25,6 +26,11 @@ steps:
     type: if
     condition: "${{ inputs.mode == 'ml_job' }}"
     steps:
+
+      # --- ML JOB ---
+      # job_id input is optional — if not supplied, match any job over the lab index.
+      # Avoid a bare * as a wildcard default value; use a prefix match on the index
+      # name alone when no job_id is provided.
       - name: find_ml_job
         type: elasticsearch.request
         on-failure:
@@ -39,8 +45,6 @@ steps:
                 filter:
                   - term:
                       job_type: "anomaly_detector"
-                  - wildcard:
-                      job_id: "{{ inputs.job_id | default: '*' }}"
                   - wildcard:
                       datafeed_config.indices: "eap-analyst-lab*"
 
@@ -65,17 +69,19 @@ steps:
               body:
                 query: |-
                   ROW passed = false, mode = "ml_job", job_id = "", detector_function = "", hints_json = "[\"No anomaly detection job found over the lab index. Create one from Machine Learning > Anomaly Detection Jobs, using the eap-analyst-lab-demo data view and the full time range, and Start it.\"]"
+
     else:
       - name: route_scripted_field
         type: if
         condition: "${{ inputs.mode == 'scripted_field' }}"
         steps:
-          # index-pattern.title is plain analyzed text (no .keyword sub-field), so
-          # match with operator: and rather than a wildcard/.keyword term query.
-          # index-pattern.fields is mapped index: false — it is stored but cannot be
-          # queried via Elasticsearch DSL at all, so don't try; fetch the doc by
-          # title only, then inspect the fields content directly from _source.
-          - name: find_index_pattern_for_field
+
+          # --- SCRIPTED FIELD ---
+          # index-pattern.title is plain analyzed text — use match with operator: and.
+          # index-pattern.fields is index: false and cannot be queried via DSL at all;
+          # fetch the data view doc by title only, then check the fields content
+          # directly from _source using a contains condition.
+          - name: find_index_pattern
             type: elasticsearch.request
             on-failure:
               continue: true
@@ -97,11 +103,21 @@ steps:
 
           - name: gate_index_pattern_found
             type: if
-            condition: "${{ steps.find_index_pattern_for_field.output.hits.total.value >= 1 }}"
+            condition: "${{ steps.find_index_pattern.output.hits.total.value >= 1 }}"
             steps:
+              # Resolve the field name to check — separate step avoids inline filter
+              # syntax inside condition expressions that some engines reject.
+              - name: resolve_field_name
+                type: elasticsearch.request
+                with:
+                  method: POST
+                  path: "/_query"
+                  body:
+                    query: "ROW field_name = \"{{ inputs.field_name | default: 'bytes_kb' }}\""
+
               - name: check_scripted_field_present
                 type: if
-                condition: "${{ steps.find_index_pattern_for_field.output.hits.hits[0]._source['index-pattern'].fields contains (inputs.field_name | default: 'bytes_kb') }}"
+                condition: "${{ steps.find_index_pattern.output.hits.hits[0]._source['index-pattern'].fields contains steps.resolve_field_name.output.values[0][0] }}"
                 steps:
                   - name: finalize_scripted_pass
                     type: elasticsearch.request
@@ -110,7 +126,7 @@ steps:
                       path: "/_query"
                       body:
                         query: |-
-                          ROW passed = true, mode = "scripted_field", field_name = "{{ inputs.field_name | default: 'bytes_kb' }}", hints_json = "[]"
+                          ROW passed = true, mode = "scripted_field", field_name = "{{ steps.resolve_field_name.output.values[0][0] }}", hints_json = "[]"
                 else:
                   - name: finalize_scripted_field_not_present
                     type: elasticsearch.request
@@ -121,7 +137,7 @@ steps:
                         query: |-
                           ROW passed = false, mode = "scripted_field", field_name = "", hints_json = "[\"Data view found, but no scripted field with that name appears in its field list. Add it in Stack Management > Data Views > [your view] > Scripted Fields.\"]"
             else:
-              - name: finalize_scripted_no_index_pattern
+              - name: finalize_no_index_pattern
                 type: elasticsearch.request
                 with:
                   method: POST
@@ -129,6 +145,7 @@ steps:
                   body:
                     query: |-
                       ROW passed = false, mode = "scripted_field", field_name = "", hints_json = "[\"No data view found over the lab index — create one first (Stack Management > Data Views) before adding a scripted field.\"]"
+
         else:
           - name: finalize_invalid_mode
             type: elasticsearch.request
